@@ -8,9 +8,9 @@
              border-radius:12px; border:1px solid var(--border); width:fit-content;
              margin-bottom:24px; flex-wrap:wrap; }
 .tipe-tab  { padding:8px 24px; border-radius:9px; font-size:13px; font-weight:700;
-             border:none; cursor:pointer; font-family:'Nunito',sans-serif;
-             color:var(--muted); background:none; transition:all .15s; text-decoration:none;
-             display:inline-block; }
+             border:2px solid transparent; cursor:pointer; font-family:'Nunito',sans-serif;
+             color:var(--muted); background:var(--bg); transition:all .15s; text-decoration:none;
+             display:inline-flex; align-items:center; line-height:1; }
 .tipe-tab.active { background:var(--teal); color:white; box-shadow:0 2px 8px rgba(43,191,164,.3); }
 .tipe-tab:hover:not(.active) { background:var(--bg); color:var(--text); }
 </style>
@@ -20,17 +20,10 @@
 
 {{-- Tab: Klinik / Pribadi --}}
 <div class="tipe-tabs">
-    @php $currentTipe = request('tipe', 'klinik'); @endphp
-
-<a href="{{ route('dashboard.user.detail-penilaian', ['tipe'=>'klinik']) }}"
-   class="tipe-tab {{ $currentTipe=='klinik'?'active':'' }}">🏥 Klinik</a>
-
-<a href="{{ route('dashboard.user.detail-penilaian', [
-    'tipe' => auth()->user()->isDokter() ? 'dokter' : 'perawat'
-]) }}"
-   class="tipe-tab {{ in_array($currentTipe,['dokter','perawat'])?'active':'' }}">
-   👤 Pribadi
-</a>
+    <a href="{{ route('dashboard.user.detail-penilaian', ['tipe'=>'klinik']) }}"
+       class="tipe-tab active">🏥 Klinik</a>
+    <a href="{{ route('dashboard.user.detail-penilaian') }}"
+       class="tipe-tab">👤 Pribadi</a>
 </div>
 
 {{-- Summary header --}}
@@ -44,7 +37,7 @@
     </div>
     <div style="text-align:right;">
         <div style="font-size:42px;font-weight:800;line-height:1;">
-            {{ $total > 0 ? number_format(collect($perQ)->avg(), 2) : '—' }}
+            {{ $total > 0 ? number_format($avgTotal, 2) : '—' }}
         </div>
         <div style="font-size:11px;opacity:.75;margin-top:4px;">rata-rata keseluruhan</div>
     </div>
@@ -96,7 +89,7 @@
             <div style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;">
                 @foreach($pertanyaan as $p)
                 @php
-                    $val   = $perQ[$loop->iteration] ?? 0;
+                    $val   = isset($perQ[$p->id]) ? (float)$perQ[$p->id]->rata_rata : 0;
                     $pct   = ($val/5)*100;
                     $color = $val>=4?'var(--teal)':($val>=3?'var(--gold)':'var(--coral)');
                 @endphp

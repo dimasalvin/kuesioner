@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\{Dokter, Perawat, Kuesioner, KuesionerKlinik, KuesionerDokter, KuesionerPerawat, PertanyaanKuesioner};
+use App\Models\{Dokter, Perawat, Kuesioner, JawabanKuesioner, PertanyaanKuesioner};
 use App\Services\NotificationService;
 
 class KuesionerController extends Controller
 {
-    // ─── Step 1: Identitas ───────────────────────────────────────────
+    // ── Step 1: Identitas ─────────────────────────────────────────────
     public function index()
     {
         session()->forget(['identitas', 'klinik', 'dokter', 'perawat', 'komplain']);
@@ -25,7 +25,7 @@ class KuesionerController extends Controller
         return redirect()->route('kuesioner.klinik');
     }
 
-    // ─── Step 2: Klinik ───────────────────────────────────────────────
+    // ── Step 2: Klinik ────────────────────────────────────────────────
     public function klinik()
     {
         if (!session('identitas')) return redirect()->route('kuesioner.index');
@@ -45,7 +45,7 @@ class KuesionerController extends Controller
         return redirect()->route('kuesioner.dokter');
     }
 
-    // ─── Step 3: Dokter ───────────────────────────────────────────────
+    // ── Step 3: Dokter ────────────────────────────────────────────────
     public function dokter()
     {
         if (!session('klinik')) return redirect()->route('kuesioner.klinik');
@@ -69,7 +69,7 @@ class KuesionerController extends Controller
         return redirect()->route('kuesioner.perawat');
     }
 
-    // ─── Step 4: Perawat ──────────────────────────────────────────────
+    // ── Step 4: Perawat ───────────────────────────────────────────────
     public function perawat()
     {
         if (!session('dokter')) return redirect()->route('kuesioner.dokter');
@@ -93,7 +93,7 @@ class KuesionerController extends Controller
         return redirect()->route('kuesioner.komplain');
     }
 
-    // ─── Step 5: Komplain ─────────────────────────────────────────────
+    // ── Step 5: Komplain ──────────────────────────────────────────────
     public function komplain()
     {
         if (!session('perawat')) return redirect()->route('kuesioner.perawat');
@@ -107,16 +107,15 @@ class KuesionerController extends Controller
             'komplain'     => 'nullable|string|max:2000',
         ]);
 
-        session(['komplain' => $data]);
+        $identitas   = session('identitas');
+        $klinikData  = session('klinik');
+        $dokterData  = session('dokter');
+        $perawatData = session('perawat');
 
-        $identitas = session('identitas');
-        $klinik    = session('klinik');
-        $dokter    = session('dokter');
-        $perawat   = session('perawat');
-
-        $hasComplain = ($data['has_complain'] ?? '0') == '1';
+        $hasComplain  = ($data['has_complain'] ?? '0') == '1';
         $komplainTeks = $hasComplain ? ($data['komplain'] ?? null) : null;
 
+        // ── Simpan header kuesioner ──────────────────────────────────
         $kuesioner = Kuesioner::create([
             'nama'         => $identitas['nama'],
             'no_telp'      => $identitas['no_telp'],
@@ -124,52 +123,82 @@ class KuesionerController extends Controller
             'komplain'     => $komplainTeks,
         ]);
 
-        // ── Simpan jawaban klinik (pakai pertanyaan_id sebagai key) ──
-        $klinikData = ['kuesioner_id' => $kuesioner->id];
+        // ── Simpan jawaban klinik ke jawaban_kuesioner ───────────────
         $klinikPertanyaan = PertanyaanKuesioner::aktif()->kategori('klinik')->get();
-        $slot = 1;
         foreach ($klinikPertanyaan as $p) {
-            if ($slot > 15) break;
-            $klinikData["q{$slot}"] = $klinik["q{$p->id}"] ?? 3;
-            $slot++;
+            $key = "q{$p->id}";
+            if (isset($klinikData[$key])) {
+                JawabanKuesioner::create([
+                    'kuesioner_id'  => $kuesioner->id,
+                    'kategori'      => 'klinik',
+                    'nakes_id'      => null,
+                    'pertanyaan_id' => $p->id,
+                    'nilai'         => (int) $klinikData[$key],
+                ]);
+            }
         }
-        // isi slot kosong jika pertanyaan aktif < 15
-        for ($i = $slot; $i <= 15; $i++) { $klinikData["q{$i}"] = 0; }
-        KuesionerKlinik::create($klinikData);
 
-        // ── Simpan jawaban dokter ─────────────────────────────────
-        $dokterData = [
-            'kuesioner_id' => $kuesioner->id,
-            'dokter_id'    => $dokter['nama_dokter'],
-            'kritik_saran' => $dokter['kritik_saran'] ?? null,
-        ];
+        // ── Simpan jawaban dokter ─────────────────────────────────────
         $dokterPertanyaan = PertanyaanKuesioner::aktif()->kategori('dokter')->get();
-        $slot = 1;
+        $dokterId = $dokterData['nama_dokter'];
         foreach ($dokterPertanyaan as $p) {
-            if ($slot > 15) break;
-            $dokterData["q{$slot}"] = $dokter["q{$p->id}"] ?? 3;
-            $slot++;
+            $key = "q{$p->id}";
+            if (isset($dokterData[$key])) {
+                JawabanKuesioner::create([
+                    'kuesioner_id'  => $kuesioner->id,
+                    'kategori'      => 'dokter',
+                    'nakes_id'      => $dokterId,
+                    'pertanyaan_id' => $p->id,
+                    'nilai'         => (int) $dokterData[$key],
+                ]);
+            }
         }
-        for ($i = $slot; $i <= 15; $i++) { $dokterData["q{$i}"] = 0; }
-        KuesionerDokter::create($dokterData);
 
-        // ── Simpan jawaban perawat ────────────────────────────────
-        $perawatData = [
+        // Simpan kritik saran dokter ke tabel lama (tetap dipakai)
+        \DB::table('kuesioner_dokters')->insert([
             'kuesioner_id' => $kuesioner->id,
-            'perawat_id'   => $perawat['nama_perawat'],
-            'kritik_saran' => $perawat['kritik_saran'] ?? null,
-        ];
-        $perawatPertanyaan = PertanyaanKuesioner::aktif()->kategori('perawat')->get();
-        $slot = 1;
-        foreach ($perawatPertanyaan as $p) {
-            if ($slot > 15) break;
-            $perawatData["q{$slot}"] = $perawat["q{$p->id}"] ?? 3;
-            $slot++;
-        }
-        for ($i = $slot; $i <= 15; $i++) { $perawatData["q{$i}"] = 0; }
-        KuesionerPerawat::create($perawatData);
+            'dokter_id'    => $dokterId,
+            'kritik_saran' => $dokterData['kritik_saran'] ?? null,
+            // q1-q15 diisi 0 sebagai placeholder (data asli di jawaban_kuesioner)
+            'q1'=>0,'q2'=>0,'q3'=>0,'q4'=>0,'q5'=>0,'q6'=>0,'q7'=>0,'q8'=>0,
+            'q9'=>0,'q10'=>0,'q11'=>0,'q12'=>0,'q13'=>0,'q14'=>0,'q15'=>0,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
 
-        // ── Kirim notifikasi jika ada komplain ────────────────────
+        // ── Simpan jawaban perawat ────────────────────────────────────
+        $perawatPertanyaan = PertanyaanKuesioner::aktif()->kategori('perawat')->get();
+        $perawatId = $perawatData['nama_perawat'];
+        foreach ($perawatPertanyaan as $p) {
+            $key = "q{$p->id}";
+            if (isset($perawatData[$key])) {
+                JawabanKuesioner::create([
+                    'kuesioner_id'  => $kuesioner->id,
+                    'kategori'      => 'perawat',
+                    'nakes_id'      => $perawatId,
+                    'pertanyaan_id' => $p->id,
+                    'nilai'         => (int) $perawatData[$key],
+                ]);
+            }
+        }
+
+        \DB::table('kuesioner_perawats')->insert([
+            'kuesioner_id' => $kuesioner->id,
+            'perawat_id'   => $perawatId,
+            'kritik_saran' => $perawatData['kritik_saran'] ?? null,
+            'q1'=>0,'q2'=>0,'q3'=>0,'q4'=>0,'q5'=>0,'q6'=>0,'q7'=>0,'q8'=>0,
+            'q9'=>0,'q10'=>0,'q11'=>0,'q12'=>0,'q13'=>0,'q14'=>0,'q15'=>0,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        // ── Simpan placeholder klinik lama ────────────────────────────
+        \DB::table('kuesioner_kliniks')->insert([
+            'kuesioner_id' => $kuesioner->id,
+            'q1'=>0,'q2'=>0,'q3'=>0,'q4'=>0,'q5'=>0,'q6'=>0,'q7'=>0,'q8'=>0,
+            'q9'=>0,'q10'=>0,'q11'=>0,'q12'=>0,'q13'=>0,'q14'=>0,'q15'=>0,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        // ── Notifikasi jika ada komplain ──────────────────────────────
         if ($hasComplain && $komplainTeks) {
             NotificationService::createKomplainNotif($kuesioner);
         }
@@ -178,7 +207,7 @@ class KuesionerController extends Controller
         return redirect()->route('kuesioner.thankyou');
     }
 
-    // ─── Step 6: Thank You ────────────────────────────────────────────
+    // ── Step 6: Thank You ─────────────────────────────────────────────
     public function thankyou()
     {
         return view('kuesioner.step6-thankyou');

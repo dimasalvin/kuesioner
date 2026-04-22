@@ -99,62 +99,30 @@
         <div class="card-title">📝 Rata-rata Per Pertanyaan</div>
     </div>
     <div class="card-body">
-        @php
-        $pertanyaan = $tipe === 'dokter' ? [
-            1=>'Nakes informatif dalam menjelaskan penyakit',
-            2=>'Mendengarkan keluhan dengan baik',
-            3=>'Memeriksa dengan teliti',
-            4=>'Memberikan diagnosis yang jelas',
-            5=>'Penjelasan resep mudah dipahami',
-            6=>'Bersikap profesional',
-            7=>'Menghormati privasi pasien',
-            8=>'Tersedia sesuai jadwal',
-            9=>'Waktu konsultasi cukup',
-            10=>'Memberikan saran gaya hidup',
-            11=>'Pasien puas dengan tindakan medis',
-            12=>'Memberikan informed consent',
-            13=>'Mudah dihubungi',
-            14=>'Bekerja sama dengan tim',
-            15=>'Nakes ramah dan bersahabat',
-        ] : [
-            1=>'Nakes informatif dalam menjelaskan prosedur',
-            2=>'Cepat tanggap terhadap kebutuhan pasien',
-            3=>'Bersikap empati',
-            4=>'Melakukan tindakan dengan hati-hati',
-            5=>'Menjelaskan prosedur dengan jelas',
-            6=>'Menjaga kebersihan saat tindakan',
-            7=>'Menghormati privasi pasien',
-            8=>'Memperkenalkan diri sebelum tindakan',
-            9=>'Komunikatif',
-            10=>'Memberikan dukungan psikologis',
-            11=>'Tepat waktu',
-            12=>'Memberikan edukasi kesehatan',
-            13=>'Bekerja sama dengan tim',
-            14=>'Pasien merasa aman',
-            15=>'Nakes ramah dan bersahabat',
-        ];
-        @endphp
-
         <div style="display:flex; flex-direction:column; gap:10px;">
-            @foreach($pertanyaan as $no => $teks)
-            @php $val = $perQ[$no] ?? 0; $pct = ($val / 5) * 100; @endphp
+            @foreach($pertanyaan as $p)
+            @php
+                $val = isset($perQRaw[$p->id]) ? (float)$perQRaw[$p->id]->rata_rata : 0;
+                $pct = ($val / 5) * 100;
+                $color = $val >= 3.5 ? 'var(--teal-dark)' : ($val >= 2.5 ? '#996B00' : 'var(--coral)');
+                $bg    = $val >= 3.5 ? 'var(--teal)' : ($val >= 2.5 ? 'var(--gold)' : 'var(--coral)');
+            @endphp
             <div style="display:flex; align-items:center; gap:12px;">
                 <div style="font-size:11px; font-weight:800; color:var(--muted); min-width:20px; text-align:right;">
-                    {{ $no }}
+                    {{ $loop->iteration }}
                 </div>
                 <div style="flex:1; font-size:13px; color:var(--text); min-width:0;">
                     <div style="margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                        {{ $teks }}
+                        {{ $p->teks }}
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div style="flex:1; height:7px; background:var(--border); border-radius:4px; overflow:hidden;">
                             <div style="width:{{ $pct }}%; height:100%; border-radius:4px;
-                                        background:{{ $val >= 3.5 ? 'var(--teal)' : ($val >= 2.5 ? 'var(--gold)' : 'var(--coral)') }};
-                                        transition:width .5s ease;">
+                                        background:{{ $bg }}; transition:width .5s ease;">
                             </div>
                         </div>
                         <span style="font-size:12px; font-weight:800; min-width:28px; text-align:right;
-                                     color:{{ $val >= 3.5 ? 'var(--teal-dark)' : ($val >= 2.5 ? '#996B00' : 'var(--coral)') }};">
+                                     color:{{ $color }};">
                             {{ $val }}
                         </span>
                     </div>

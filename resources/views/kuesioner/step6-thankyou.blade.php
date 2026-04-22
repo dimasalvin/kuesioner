@@ -38,20 +38,5 @@
         Semoga Anda selalu sehat dan mendapatkan pelayanan terbaik dari kami. Sampai jumpa kembali!
     </p>
 
-    <a href="{{ route('kuesioner.index') }}" style="
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--teal);
-        font-weight: 700;
-        font-size: 14px;
-        text-decoration: none;
-        padding: 12px 24px;
-        border: 2px solid var(--teal);
-        border-radius: var(--radius);
-        transition: all 0.2s;
-    ">
-        ← Isi Kuesioner Lagi
-    </a>
 </div>
 @endsection
