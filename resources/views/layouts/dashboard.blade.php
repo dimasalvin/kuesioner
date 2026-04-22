@@ -131,10 +131,9 @@
         .notif-item:last-child { border-bottom:none; }
         .notif-item:hover { background:var(--bg); }
         .notif-item.unread { background:#FFF8F8; }
-        .notif-item.unread:hover { background:#FFf0f0; }
+        .notif-item.unread:hover { background:#FFF0F0; }
         .notif-dot-wrap { flex-shrink:0; display:flex; align-items:flex-start; padding-top:4px; }
-        .notif-dot { width:10px; height:10px; border-radius:50%; background:var(--coral);
-                     flex-shrink:0; }
+        .notif-dot { width:10px; height:10px; border-radius:50%; background:var(--coral); flex-shrink:0; }
         .notif-dot.read { background:transparent; border:2px solid var(--border); }
         .notif-icon-wrap {
             width:40px; height:40px; border-radius:50%; flex-shrink:0;
@@ -150,8 +149,7 @@
         .notif-time  { font-size:11px; color:var(--teal); font-weight:700; margin-top:4px; }
         .notif-empty { padding:32px; text-align:center; color:var(--muted); font-size:13px; }
         .notif-footer { padding:10px; border-top:1px solid var(--border); text-align:center; }
-        .notif-footer a { font-size:13px; color:var(--teal); font-weight:700;
-                          text-decoration:none; }
+        .notif-footer a { font-size:13px; color:var(--teal); font-weight:700; text-decoration:none; }
 
         /* ── Page Content ── */
         .page-content { flex:1; padding:28px; }
@@ -191,8 +189,7 @@
         table { width:100%; border-collapse:collapse; font-size:14px; }
         th { padding:11px 16px; text-align:left; background:var(--bg);
              border-bottom:2px solid var(--border); font-size:11px; font-weight:800;
-             text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
-             white-space:nowrap; }
+             text-transform:uppercase; letter-spacing:.06em; color:var(--muted); white-space:nowrap; }
         td { padding:12px 16px; border-bottom:1px solid var(--border); vertical-align:middle; }
         tr:last-child td { border-bottom:none; }
         tr:hover td { background:var(--bg); }
@@ -212,13 +209,11 @@
                border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;
                text-decoration:none; border:none; font-family:'Nunito',sans-serif;
                transition:all .15s; }
-        .btn-primary { background:var(--teal); color:white;
-                       box-shadow:0 2px 8px rgba(43,191,164,.3); }
+        .btn-primary { background:var(--teal); color:white; box-shadow:0 2px 8px rgba(43,191,164,.3); }
         .btn-primary:hover { background:var(--teal-dark); }
         .btn-danger  { background:var(--coral-light); color:var(--coral); }
         .btn-danger:hover  { background:var(--coral); color:white; }
-        .btn-ghost   { background:var(--bg); color:var(--muted);
-                       border:1px solid var(--border); }
+        .btn-ghost   { background:var(--bg); color:var(--muted); border:1px solid var(--border); }
         .btn-ghost:hover { color:var(--text); background:var(--border); }
         .btn-sm      { padding:5px 11px; font-size:12px; }
 
@@ -233,19 +228,14 @@
                               box-shadow:0 0 0 3px rgba(43,191,164,.1); }
 
         /* ── Alerts ── */
-        .alert { padding:12px 16px; border-radius:9px; font-size:13px; font-weight:600;
-                 margin-bottom:20px; }
-        .alert-success { background:var(--teal-light); color:var(--teal-dark);
-                         border:1px solid var(--teal); }
-        .alert-danger  { background:var(--coral-light); color:var(--coral);
-                         border:1px solid var(--coral); }
+        .alert { padding:12px 16px; border-radius:9px; font-size:13px; font-weight:600; margin-bottom:20px; }
+        .alert-success { background:var(--teal-light); color:var(--teal-dark); border:1px solid var(--teal); }
+        .alert-danger  { background:var(--coral-light); color:var(--coral); border:1px solid var(--coral); }
 
         /* ── Pagination ── */
-        .pagination { display:flex; gap:6px; align-items:center;
-                      padding:16px 22px; border-top:1px solid var(--border); }
+        .pagination { display:flex; gap:6px; align-items:center; padding:16px 22px; border-top:1px solid var(--border); }
         .page-link { padding:6px 12px; border-radius:7px; font-size:13px; font-weight:700;
-                     text-decoration:none; color:var(--muted); background:var(--bg);
-                     border:1px solid var(--border); }
+                     text-decoration:none; color:var(--muted); background:var(--bg); border:1px solid var(--border); }
         .page-link.active { background:var(--teal); color:white; border-color:var(--teal); }
         .page-link:hover:not(.active) { background:var(--border); color:var(--text); }
 
@@ -284,19 +274,20 @@
         </div>
     </div>
     <nav class="sidebar-nav">
+
         @if(auth()->user()->isAdmin())
             <div class="nav-section-label">Administrator</div>
-            <a href="{{ route('dashboard.admin') }}" class="nav-item {{ request()->routeIs('dashboard.admin') ? 'active' : '' }}">
+            <a href="{{ route('dashboard.admin') }}" class="nav-item {{ request()->routeIs('dashboard.admin') && !request()->routeIs('dashboard.admin.*') ? 'active' : '' }}">
                 <span class="icon">📊</span> Dashboard
             </a>
             <a href="{{ route('dashboard.admin.users') }}" class="nav-item {{ request()->routeIs('dashboard.admin.users*') ? 'active' : '' }}">
                 <span class="icon">👥</span> Kelola User
             </a>
             <a href="{{ route('dashboard.admin.manajemen-kuesioner') }}" class="nav-item {{ request()->routeIs('dashboard.admin.manajemen-kuesioner*') ? 'active' : '' }}">
-                <span class="icon">📝</span> Manajemen Kuesioner
+                <span class="icon">⚙️</span> Kelola Kuesioner
             </a>
-            <a href="{{ route('dashboard.admin.kuesioner') }}" class="nav-item {{ request()->routeIs('dashboard.admin.kuesioner') ? 'active' : '' }}">
-                <span class="icon">📋</span> Data Kuesioner
+            <a href="{{ route('dashboard.admin.detail-penilaian') }}" class="nav-item {{ request()->routeIs('dashboard.admin.detail-penilaian*') ? 'active' : '' }}">
+                <span class="icon">📋</span> Detail Penilaian
             </a>
             <a href="{{ route('dashboard.admin.komplain') }}" class="nav-item {{ request()->routeIs('dashboard.admin.komplain*') ? 'active' : '' }}">
                 <span class="icon">⚠️</span> Komplain
@@ -304,10 +295,17 @@
             <a href="{{ route('dashboard.admin.kritik-saran') }}" class="nav-item {{ request()->routeIs('dashboard.admin.kritik-saran*') ? 'active' : '' }}">
                 <span class="icon">💬</span> Kritik & Saran
             </a>
+
         @elseif(auth()->user()->isManagement())
             <div class="nav-section-label">Management</div>
-            <a href="{{ route('dashboard.management') }}" class="nav-item {{ request()->routeIs('dashboard.management') ? 'active' : '' }}">
+            <a href="{{ route('dashboard.management') }}" class="nav-item {{ request()->routeIs('dashboard.management') && !request()->routeIs('dashboard.management.*') ? 'active' : '' }}">
                 <span class="icon">📊</span> Dashboard
+            </a>
+            <a href="{{ route('dashboard.management.penilaian-nakes') }}" class="nav-item {{ request()->routeIs('dashboard.management.penilaian-nakes*') ? 'active' : '' }}">
+                <span class="icon">🏅</span> Penilaian Nakes
+            </a>
+            <a href="{{ route('dashboard.management.detail-penilaian') }}" class="nav-item {{ request()->routeIs('dashboard.management.detail-penilaian*') ? 'active' : '' }}">
+                <span class="icon">📋</span> Detail Penilaian
             </a>
             <a href="{{ route('dashboard.management.komplain') }}" class="nav-item {{ request()->routeIs('dashboard.management.komplain*') ? 'active' : '' }}">
                 <span class="icon">⚠️</span> Komplain
@@ -315,16 +313,23 @@
             <a href="{{ route('dashboard.management.kritik-saran') }}" class="nav-item {{ request()->routeIs('dashboard.management.kritik-saran*') ? 'active' : '' }}">
                 <span class="icon">💬</span> Kritik & Saran
             </a>
+
         @else
             <div class="nav-section-label">{{ auth()->user()->isDokter() ? 'Dokter' : 'Perawat' }}</div>
-            <a href="{{ route('dashboard.user') }}" class="nav-item {{ request()->routeIs('dashboard.user') ? 'active' : '' }}">
-                <span class="icon">📊</span> Penilaian Saya
+            <a href="{{ route('dashboard.user.penilaian-klinik') }}" class="nav-item {{ request()->routeIs('dashboard.user.penilaian-klinik*') ? 'active' : '' }}">
+                <span class="icon">🏥</span> Penilaian Klinik
+            </a>
+            <a href="{{ route('dashboard.user') }}" class="nav-item {{ request()->routeIs('dashboard.user') && !request()->routeIs('dashboard.user.*') ? 'active' : '' }}">
+                <span class="icon">⭐</span> Penilaian Saya
+            </a>
+            <a href="{{ route('dashboard.user.detail-penilaian') }}" class="nav-item {{ request()->routeIs('dashboard.user.detail-penilaian*') ? 'active' : '' }}">
+                <span class="icon">📋</span> Detail Penilaian
+            </a>
+            <a href="{{ route('dashboard.user.kritik-saran') }}" class="nav-item {{ request()->routeIs('dashboard.user.kritik-saran*') ? 'active' : '' }}">
+                <span class="icon">💬</span> Kritik & Saran
             </a>
         @endif
-        <div class="nav-section-label" style="margin-top:16px;">Kuesioner</div>
-        <a href="{{ route('kuesioner.index') }}" class="nav-item" target="_blank">
-            <span class="icon">📝</span> Form Pasien
-        </a>
+
     </nav>
     <div class="sidebar-bottom">
         <form method="POST" action="{{ route('logout') }}">
@@ -348,12 +353,12 @@
         <div class="topbar-right">
             <div class="topbar-date">{{ now()->timezone('Asia/Jakarta')->translatedFormat('l, d F Y') }}</div>
 
-            {{-- ── Notification Bell (admin & management only) ── --}}
+            {{-- Notification Bell (admin & management only) --}}
             @if(auth()->user()->isAdmin() || auth()->user()->isManagement())
             @php
-    $notifList = \App\Services\NotificationService::getForUser(auth()->id(), 15);
-    $unreadCount = \App\Services\NotificationService::unreadCount(auth()->id());
-@endphp
+                $notifList   = \App\Services\NotificationService::getForUser(auth()->id(), 15);
+                $unreadCount = \App\Services\NotificationService::unreadCount(auth()->id());
+            @endphp
             <div class="notif-wrapper" id="notifWrapper">
                 <div class="notif-bell" id="notifBell" onclick="toggleNotif(event)">
                     🔔
@@ -373,47 +378,32 @@
                     </div>
 
                     <div class="notif-list" id="notifList">
-
-    @php
-        if (auth()->user()->isAdmin()) {
-            $routeKomplain = route('dashboard.admin.komplain');
-        } elseif (auth()->user()->isManagement()) {
-            $routeKomplain = route('dashboard.management.komplain');
-        } else {
-            $routeKomplain = '#';
-        }
-    @endphp
-
-    @forelse($notifList as $notif)
-    <div class="notif-item {{ $notif->isUnread() ? 'unread' : '' }}"
-         onclick="openNotif({{ $notif->id }}, '{{ $routeKomplain }}')"
-         style="cursor:pointer;">
-
-        <div class="notif-dot-wrap">
-            <div class="notif-dot {{ $notif->isUnread() ? '' : 'read' }}"></div>
-        </div>
-
-        <div class="notif-icon-wrap">⚠️</div>
-
-        <div class="notif-body">
-            <div class="notif-title">{{ $notif->judul }}</div>
-            <div class="notif-msg">{{ $notif->pesan }}</div>
-            <div class="notif-time">
-                {{ $notif->created_at->diffForHumans() }}
-            </div>
-        </div>
-    </div>
-    @empty
-    <div class="notif-empty">
-        ✅ Tidak ada notifikasi
-    </div>
-    @endforelse
-</div>
+                        @php
+                            $routeKomplain = auth()->user()->isAdmin()
+                                ? route('dashboard.admin.komplain')
+                                : route('dashboard.management.komplain');
+                        @endphp
+                        @forelse($notifList as $notif)
+                        <div class="notif-item {{ $notif->isUnread() ? 'unread' : '' }}"
+                             onclick="openNotif({{ $notif->id }}, '{{ $routeKomplain }}')"
+                             style="cursor:pointer;">
+                            <div class="notif-dot-wrap">
+                                <div class="notif-dot {{ $notif->isUnread() ? '' : 'read' }}"></div>
+                            </div>
+                            <div class="notif-icon-wrap">⚠️</div>
+                            <div class="notif-body">
+                                <div class="notif-title">{{ $notif->judul }}</div>
+                                <div class="notif-msg">{{ $notif->pesan }}</div>
+                                <div class="notif-time">{{ $notif->created_at->diffWib() }}</div>
+                            </div>
+                        </div>
+                        @empty
+                        <div class="notif-empty">✅ Tidak ada notifikasi</div>
+                        @endforelse
+                    </div>
 
                     <div class="notif-footer">
-                        <a href="{{ auth()->user()->isAdmin() ? route('dashboard.admin.komplain') : route('dashboard.management.komplain') }}">
-                            Lihat semua komplain →
-                        </a>
+                        <a href="{{ $routeKomplain }}">Lihat semua komplain →</a>
                     </div>
                 </div>
             </div>
@@ -433,7 +423,6 @@
 </div>
 
 <script>
-// ── Notification dropdown ─────────────────────────────────────────────
 var notifOpen = false;
 
 function toggleNotif(e) {
@@ -441,7 +430,6 @@ function toggleNotif(e) {
     notifOpen = !notifOpen;
     document.getElementById('notifDropdown').classList.toggle('open', notifOpen);
     if (notifOpen) {
-        // auto mark all read after 1.5s
         setTimeout(function() { markAllRead(); }, 1500);
     }
 }
@@ -454,7 +442,6 @@ function markAllRead() {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
         }
     }).then(function() {
-        // sembunyikan badge & hapus unread style
         document.getElementById('notifBadge').classList.remove('show');
         document.querySelectorAll('.notif-item.unread').forEach(function(el) {
             el.classList.remove('unread');
@@ -462,7 +449,6 @@ function markAllRead() {
         document.querySelectorAll('.notif-dot').forEach(function(el) {
             el.classList.add('read');
         });
-        // sembunyikan tombol "tandai semua dibaca"
         var btn = document.querySelector('.notif-mark-all');
         if (btn) btn.style.display = 'none';
     });
@@ -481,17 +467,22 @@ function openNotif(id, url) {
     });
 }
 
-// Tutup dropdown saat klik di luar
 document.addEventListener('click', function(e) {
-    if (notifOpen && !document.getElementById('notifWrapper').contains(e.target)) {
+    var wrapper = document.getElementById('notifWrapper');
+    if (notifOpen && wrapper && !wrapper.contains(e.target)) {
         notifOpen = false;
         document.getElementById('notifDropdown').classList.remove('open');
     }
 });
 
-// ── Sidebar mobile ─────────────────────────────────────────────────────
-function openSidebar()  { document.getElementById('sidebar').classList.add('open');  document.getElementById('overlay').classList.add('show'); }
-function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); }
+function openSidebar()  {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('overlay').classList.add('show');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('overlay').classList.remove('show');
+}
 </script>
 @stack('scripts')
 </body>

@@ -126,4 +126,29 @@ class UserController extends Controller
         $count = $rows->count();
         return array_map(fn($s) => round($s / $count, 2), $sums);
     }
+    // ── Kritik & Saran milik sendiri ──────────────────────────────────
+    public function kritikSaran()
+    {
+        $user = auth()->user();
+        if ($user->isDokter()) {
+            $nakes = $user->dokter;
+            $kritik = \DB::table('kuesioner_dokters as kd')
+                ->join('kuesioners as k','k.id','=','kd.kuesioner_id')
+                ->where('kd.dokter_id', $nakes->id)
+                ->whereNotNull('kd.kritik_saran')->where('kd.kritik_saran','!=','')
+                ->select('kd.kritik_saran','k.nama as pasien_nama','k.created_at')
+                ->orderByDesc('k.created_at')->paginate(15);
+        } else {
+            $nakes = $user->perawat;
+            $kritik = \DB::table('kuesioner_perawats as kp')
+                ->join('kuesioners as k','k.id','=','kp.kuesioner_id')
+                ->where('kp.perawat_id', $nakes->id)
+                ->whereNotNull('kp.kritik_saran')->where('kp.kritik_saran','!=','')
+                ->select('kp.kritik_saran','k.nama as pasien_nama','k.created_at')
+                ->orderByDesc('k.created_at')->paginate(15);
+        }
+    
+        return view('dashboard.user.kritik-saran', compact('nakes','kritik'));
+    }
 }
+

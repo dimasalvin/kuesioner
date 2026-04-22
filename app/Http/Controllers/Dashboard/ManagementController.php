@@ -1,6 +1,4 @@
 <?php
-// app/Http/Controllers/Dashboard/ManagementController.php
-
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
@@ -13,7 +11,7 @@ class ManagementController extends Controller
     public function index()
     {
         return view('dashboard.management.index', [
-            'stats' => [
+            'stats'         => [
                 'total_kuesioner' => Kuesioner::count(),
                 'total_komplain'  => Kuesioner::whereHasComplain()->count(),
                 'total_dokter'    => Dokter::count(),
@@ -27,63 +25,74 @@ class ManagementController extends Controller
         ]);
     }
 
+    // Penilaian Tenaga Kesehatan (chart + rating list)
+    public function penilaianNakes(Request $request)
+    {
+        return view('dashboard.management.penilaian-nakes', [
+            'chartDokter'   => AdminController::chartData('dokter'),
+            'chartPerawat'  => AdminController::chartData('perawat'),
+            'ratingDokter'  => $this->topRatings('dokter', 999),
+            'ratingPerawat' => $this->topRatings('perawat', 999),
+        ]);
+    }
+
+    // Data Kuesioner (read-only)
+    public function kuesionerList()
+    {
+        $list = Kuesioner::with(['klinik','dokterRel.dokter','perawatRel.perawat'])
+            ->latest()->paginate(20);
+        return view('dashboard.management.kuesioner-list', compact('list'));
+    }
+
     public function komplain(Request $request)
     {
         $komplain = Kuesioner::whereHasComplain()
-            ->when($request->search, fn($q, $s) =>
-                $q->where('nama', 'like', "%$s%")->orWhere('komplain', 'like', "%$s%"))
+            ->when($request->search, fn($q,$s) =>
+                $q->where('nama','like',"%$s%")->orWhere('komplain','like',"%$s%"))
             ->latest()->paginate(20)->withQueryString();
-
         return view('dashboard.management.komplain', compact('komplain'));
     }
 
-    // ── Kritik & Saran ────────────────────────────────────────────
     public function kritikSaran(Request $request)
     {
-        $tipe    = $request->get('tipe', 'dokter');
-        $nakesId = $request->get('nakes_id');
-        $search  = $request->get('search');
+        $tipe     = $request->get('tipe','dokter');
+        $nakesId  = $request->get('nakes_id');
+        $search   = $request->get('search');
 
         if ($tipe === 'dokter') {
             $nakesList = Dokter::orderBy('nama')->get();
             $query = DB::table('kuesioner_dokters as kd')
-                ->join('dokters as d', 'd.id', '=', 'kd.dokter_id')
-                ->join('kuesioners as k', 'k.id', '=', 'kd.kuesioner_id')
-                ->select('kd.id', 'd.id as nakes_id', 'd.nama as nakes_nama',
-                         'd.spesialisasi', 'kd.kritik_saran', 'k.nama as pasien_nama',
-                         'k.created_at')
-                ->whereNotNull('kd.kritik_saran')->where('kd.kritik_saran', '!=', '');
+                ->join('dokters as d','d.id','=','kd.dokter_id')
+                ->join('kuesioners as k','k.id','=','kd.kuesioner_id')
+                ->select('kd.id','d.id as nakes_id','d.nama as nakes_nama',
+                         'd.spesialisasi','kd.kritik_saran','k.nama as pasien_nama','k.created_at')
+                ->whereNotNull('kd.kritik_saran')->where('kd.kritik_saran','!=','');
         } else {
             $tipe = 'perawat';
             $nakesList = Perawat::orderBy('nama')->get();
             $query = DB::table('kuesioner_perawats as kp')
-                ->join('perawats as p', 'p.id', '=', 'kp.perawat_id')
-                ->join('kuesioners as k', 'k.id', '=', 'kp.kuesioner_id')
-                ->select('kp.id', 'p.id as nakes_id', 'p.nama as nakes_nama',
-                         DB::raw('NULL as spesialisasi'), 'kp.kritik_saran',
-                         'k.nama as pasien_nama', 'k.created_at')
-                ->whereNotNull('kp.kritik_saran')->where('kp.kritik_saran', '!=', '');
+                ->join('perawats as p','p.id','=','kp.perawat_id')
+                ->join('kuesioners as k','k.id','=','kp.kuesioner_id')
+                ->select('kp.id','p.id as nakes_id','p.nama as nakes_nama',
+                         DB::raw('NULL as spesialisasi'),'kp.kritik_saran','k.nama as pasien_nama','k.created_at')
+                ->whereNotNull('kp.kritik_saran')->where('kp.kritik_saran','!=','');
         }
 
         if ($nakesId) {
-            $col = $tipe === 'dokter' ? 'kd.dokter_id' : 'kp.perawat_id';
-            $query->where($col, $nakesId);
+            $col = $tipe==='dokter' ? 'kd.dokter_id' : 'kp.perawat_id';
+            $query->where($col,$nakesId);
         }
-
         if ($search) {
-            $query->where(function ($q) use ($search, $tipe) {
-                $col = $tipe === 'dokter' ? 'kd.kritik_saran' : 'kp.kritik_saran';
-                $q->where($col, 'like', "%$search%")
-                  ->orWhere('k.nama', 'like', "%$search%");
+            $query->where(function($q) use($search,$tipe) {
+                $col = $tipe==='dokter' ? 'kd.kritik_saran' : 'kp.kritik_saran';
+                $q->where($col,'like',"%$search%")->orWhere('k.nama','like',"%$search%");
             });
         }
 
         $kritik  = $query->orderByDesc('k.created_at')->paginate(20)->withQueryString();
         $summary = $this->kritikSummary($tipe);
 
-        return view('dashboard.management.kritik-saran', compact(
-            'kritik', 'tipe', 'nakesList', 'nakesId', 'search', 'summary'
-        ));
+        return view('dashboard.management.kritik-saran', compact('kritik','tipe','nakesList','nakesId','search','summary'));
     }
 
     public function chartApi(string $type)
@@ -91,41 +100,37 @@ class ManagementController extends Controller
         return response()->json(AdminController::chartData($type));
     }
 
-    private function topRatings(string $type): \Illuminate\Support\Collection
+    private function topRatings(string $type, int $limit = 5): \Illuminate\Support\Collection
     {
         if ($type === 'dokter') {
             return DB::table('kuesioner_dokters as kd')
-                ->join('dokters as d', 'd.id', '=', 'kd.dokter_id')
-                ->selectRaw('d.nama, d.spesialisasi, COUNT(kd.id) as total,
+                ->join('dokters as d','d.id','=','kd.dokter_id')
+                ->selectRaw('d.id, d.nama, d.spesialisasi, COUNT(kd.id) as total,
                     ROUND(AVG((kd.q1+kd.q2+kd.q3+kd.q4+kd.q5+kd.q6+kd.q7+kd.q8+kd.q9+kd.q10+kd.q11+kd.q12+kd.q13+kd.q14+kd.q15)/15.0),2) as rata_rata')
-                ->groupBy('d.id', 'd.nama', 'd.spesialisasi')
-                ->orderByDesc('rata_rata')->limit(5)->get();
+                ->groupBy('d.id','d.nama','d.spesialisasi')
+                ->orderByDesc('rata_rata')->limit($limit)->get();
         }
-
         return DB::table('kuesioner_perawats as kp')
-            ->join('perawats as p', 'p.id', '=', 'kp.perawat_id')
-            ->selectRaw('p.nama, COUNT(kp.id) as total,
+            ->join('perawats as p','p.id','=','kp.perawat_id')
+            ->selectRaw('p.id, p.nama, COUNT(kp.id) as total,
                 ROUND(AVG((kp.q1+kp.q2+kp.q3+kp.q4+kp.q5+kp.q6+kp.q7+kp.q8+kp.q9+kp.q10+kp.q11+kp.q12+kp.q13+kp.q14+kp.q15)/15.0),2) as rata_rata')
-            ->groupBy('p.id', 'p.nama')
-            ->orderByDesc('rata_rata')->limit(5)->get();
+            ->groupBy('p.id','p.nama')
+            ->orderByDesc('rata_rata')->limit($limit)->get();
     }
 
     private function kritikSummary(string $tipe): \Illuminate\Support\Collection
     {
         if ($tipe === 'dokter') {
             return DB::table('kuesioner_dokters as kd')
-                ->join('dokters as d', 'd.id', '=', 'kd.dokter_id')
+                ->join('dokters as d','d.id','=','kd.dokter_id')
                 ->selectRaw('d.id, d.nama, d.spesialisasi, COUNT(kd.kritik_saran) as total')
-                ->whereNotNull('kd.kritik_saran')->where('kd.kritik_saran', '!=', '')
-                ->groupBy('d.id', 'd.nama', 'd.spesialisasi')
-                ->orderByDesc('total')->get();
+                ->whereNotNull('kd.kritik_saran')->where('kd.kritik_saran','!=','')
+                ->groupBy('d.id','d.nama','d.spesialisasi')->orderByDesc('total')->get();
         }
-
         return DB::table('kuesioner_perawats as kp')
-            ->join('perawats as p', 'p.id', '=', 'kp.perawat_id')
+            ->join('perawats as p','p.id','=','kp.perawat_id')
             ->selectRaw('p.id, p.nama, COUNT(kp.kritik_saran) as total')
-            ->whereNotNull('kp.kritik_saran')->where('kp.kritik_saran', '!=', '')
-            ->groupBy('p.id', 'p.nama')
-            ->orderByDesc('total')->get();
+            ->whereNotNull('kp.kritik_saran')->where('kp.kritik_saran','!=','')
+            ->groupBy('p.id','p.nama')->orderByDesc('total')->get();
     }
 }
