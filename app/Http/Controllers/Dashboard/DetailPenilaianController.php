@@ -61,7 +61,7 @@ class DetailPenilaianController extends Controller
             ->selectRaw('k.id, k.nama as pasien_nama, k.no_telp, k.created_at,
                 ROUND(AVG(j.nilai),2) as rata_rata')
             ->groupBy('k.id','k.nama','k.no_telp','k.created_at')
-            ->orderByDesc('k.created_at')
+            ->orderByDesc('k.id')
             ->paginate(20);
 
         $tipe = 'klinik';
@@ -118,7 +118,7 @@ class DetailPenilaianController extends Controller
             ->selectRaw('k.id, k.nama as pasien_nama, k.no_telp, k.created_at,
                 ROUND(AVG(j.nilai),2) as rata_rata')
             ->groupBy('k.id','k.nama','k.no_telp','k.created_at')
-            ->orderByDesc('k.created_at')
+            ->orderByDesc('k.id')
             ->paginate(15);
 
         $tipe = $kategori;
@@ -147,7 +147,7 @@ class DetailPenilaianController extends Controller
             ->selectRaw('k.id, k.nama as pasien_nama, k.no_telp, k.created_at,
                 ROUND(AVG(j.nilai),2) as rata_rata')
             ->groupBy('k.id','k.nama','k.no_telp','k.created_at')
-            ->orderByDesc('k.created_at')
+            ->orderByDesc('k.id')
             ->paginate(15);
 
         return view('dashboard.shared.detail-penilaian-list', compact('rows','nakes','tipe'));
