@@ -19,12 +19,12 @@
 @section('content')
 
 {{-- Tab: Klinik / Pribadi --}}
-<div class="tipe-tabs">
+<!-- <div class="tipe-tabs">
     <a href="{{ route('dashboard.user.detail-penilaian', ['tipe'=>'klinik']) }}"
        class="tipe-tab active">🏥 Klinik</a>
     <a href="{{ route('dashboard.user.detail-penilaian') }}"
-       class="tipe-tab">👤 Pribadi</a>
-</div>
+       class="tipe-tab">👤 Pribadi2</a>
+</div> -->
 
 {{-- Summary header --}}
 <div style="background:linear-gradient(135deg,var(--sky),#3A82C8);border-radius:var(--radius);

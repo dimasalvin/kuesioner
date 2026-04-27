@@ -56,7 +56,7 @@
                 @forelse($rows as $r)
                 @php $stars = round($r->rata_rata); @endphp
                 <tr>
-                    <td style="color:var(--muted);font-size:12px;">{{ $r->id }}</td>
+                    <td style="color:var(--muted);font-size:12px;">{{ $rows->total() - (($rows->currentPage() - 1) * $rows->perPage()) - $loop->index }}</td>
                     <td><strong>{{ $r->pasien_nama }}</strong></td>
                     <td style="color:var(--muted);font-size:13px;">{{ $r->no_telp }}</td>
                     <td>

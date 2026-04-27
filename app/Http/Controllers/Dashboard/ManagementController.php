@@ -28,12 +28,25 @@ class ManagementController extends Controller
     // Penilaian Tenaga Kesehatan (chart + rating list)
     public function penilaianNakes(Request $request)
     {
+        $dokterList  = Dokter::orderBy('nama')->get();
+        $perawatList = Perawat::orderBy('nama')->get();
+
         return view('dashboard.management.penilaian-nakes', [
-            'chartDokter'   => AdminController::chartData('dokter'),
-            'chartPerawat'  => AdminController::chartData('perawat'),
+            'dokterList'    => $dokterList,
+            'perawatList'   => $perawatList,
             'ratingDokter'  => $this->topRatings('dokter', 999),
             'ratingPerawat' => $this->topRatings('perawat', 999),
+            // chart data semua (dipakai JS via chartApiNakes)
+            'chartSemuaDokter'  => $this->chartSemuaNakes('dokter'),
+            'chartSemuaPerawat' => $this->chartSemuaNakes('perawat'),
         ]);
+    }
+
+    // API: chart untuk 1 nakes (distribusi Baik/Cukup/Kurang)
+    public function chartNakesApi(Request $request, string $tipe, int $id)
+    {
+        $data = $this->chartDistribusiNakes($tipe, $id);
+        return response()->json($data);
     }
 
     // Data Kuesioner (read-only)
@@ -116,6 +129,60 @@ class ManagementController extends Controller
                 ROUND(AVG((kp.q1+kp.q2+kp.q3+kp.q4+kp.q5+kp.q6+kp.q7+kp.q8+kp.q9+kp.q10+kp.q11+kp.q12+kp.q13+kp.q14+kp.q15)/15.0),2) as rata_rata')
             ->groupBy('p.id','p.nama')
             ->orderByDesc('rata_rata')->limit($limit)->get();
+    }
+
+    // Chart rata-rata semua nakes (bar per individu)
+    private function chartSemuaNakes(string $type): array
+    {
+        if ($type === 'dokter') {
+            $rows = DB::table('kuesioner_dokters as kd')
+                ->join('dokters as d','d.id','=','kd.dokter_id')
+                ->selectRaw('d.nama,
+                    ROUND(AVG((kd.q1+kd.q2+kd.q3+kd.q4+kd.q5+kd.q6+kd.q7+kd.q8+kd.q9+kd.q10+kd.q11+kd.q12+kd.q13+kd.q14+kd.q15)/15.0),2) as rata_rata')
+                ->groupBy('d.id','d.nama')
+                ->orderByDesc('rata_rata')->get();
+        } else {
+            $rows = DB::table('kuesioner_perawats as kp')
+                ->join('perawats as p','p.id','=','kp.perawat_id')
+                ->selectRaw('p.nama,
+                    ROUND(AVG((kp.q1+kp.q2+kp.q3+kp.q4+kp.q5+kp.q6+kp.q7+kp.q8+kp.q9+kp.q10+kp.q11+kp.q12+kp.q13+kp.q14+kp.q15)/15.0),2) as rata_rata')
+                ->groupBy('p.id','p.nama')
+                ->orderByDesc('rata_rata')->get();
+        }
+
+        return [
+            'type'   => 'semua',
+            'labels' => $rows->pluck('nama')->toArray(),
+            'data'   => $rows->pluck('rata_rata')->map(fn($v) => (float)$v)->toArray(),
+        ];
+    }
+
+    // Chart distribusi Baik/Cukup/Kurang untuk 1 nakes
+    private function chartDistribusiNakes(string $tipe, int $id): array
+    {
+        $avg = 'ROUND((q1+q2+q3+q4+q5+q6+q7+q8+q9+q10+q11+q12+q13+q14+q15)/15.0,2)';
+        if ($tipe === 'dokter') {
+            $rows = DB::table('kuesioner_dokters')->where('dokter_id',$id)
+                ->selectRaw("$avg as avg_val")->get();
+        } else {
+            $rows = DB::table('kuesioner_perawats')->where('perawat_id',$id)
+                ->selectRaw("$avg as avg_val")->get();
+        }
+
+        $baik = $cukup = $kurang = 0;
+        foreach ($rows as $r) {
+            $v = (float)$r->avg_val;
+            if ($v >= 4)      $baik++;
+            elseif ($v >= 3)  $cukup++;
+            else               $kurang++;
+        }
+
+        return [
+            'type'   => 'individu',
+            'labels' => ['Baik (4–5 ⭐)', 'Cukup (3 ⭐)', 'Kurang (1–2 ⭐)'],
+            'data'   => [$baik, $cukup, $kurang],
+            'total'  => $baik + $cukup + $kurang,
+        ];
     }
 
     private function kritikSummary(string $tipe): \Illuminate\Support\Collection

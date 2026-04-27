@@ -69,6 +69,7 @@ Route::prefix('dashboard/admin')->name('dashboard.admin')->middleware(['auth','r
     Route::get('/komplain',     [AdminController::class, 'komplain'])->name('.komplain');
     Route::get('/kritik-saran', [AdminController::class, 'kritikSaran'])->name('.kritik-saran');
     Route::get('/chart/{type}', [AdminController::class, 'chartApi'])->name('.chart');
+    Route::get('/chart-nakes/{tipe}/{id}', [ManagementController::class, 'chartNakesApi'])->name('.chart-nakes');
 });
 
 // ── Dashboard: Management ─────────────────────────────────────────────
@@ -92,6 +93,7 @@ Route::prefix('dashboard/management')->name('dashboard.management')->middleware(
     Route::get('/komplain',     [ManagementController::class, 'komplain'])->name('.komplain');
     Route::get('/kritik-saran', [ManagementController::class, 'kritikSaran'])->name('.kritik-saran');
     Route::get('/chart/{type}', [ManagementController::class, 'chartApi'])->name('.chart');
+    Route::get('/chart-nakes/{tipe}/{id}', [ManagementController::class, 'chartNakesApi'])->name('.chart-nakes');
 });
 
 // ── Dashboard: User (Nakes) ───────────────────────────────────────────
