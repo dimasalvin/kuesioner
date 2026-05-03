@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use App\Models\{Dokter, Perawat, Kuesioner, JawabanKuesioner, PertanyaanKuesioner};
+use App\Models\{Dokter, Perawat, Kuesioner, PertanyaanKuesioner};
 use App\Services\NotificationService;
 
 class KuesionerController extends Controller
@@ -154,76 +154,59 @@ class KuesionerController extends Controller
 
             $kuesionerId = $kuesioner->id;
 
-            // ── Build bulk insert untuk jawaban_kuesioner (1 query) ──
-            $jawabanBulk = [];
+            // ── Build JSON jawaban per kategori ──────────────────────
 
-            // Klinik
-            $klinikInsert = ['kuesioner_id' => $kuesionerId, 'created_at' => $now, 'updated_at' => $now];
-            $urutanQ = 1;
+            // Klinik: {pertanyaan_id: nilai, ...}
+            $klinikJawaban = [];
             foreach ($klinikPertanyaan as $p) {
-                $nilai = (int) ($klinikData["q{$p->id}"] ?? 0);
-                $jawabanBulk[] = [
-                    'kuesioner_id'  => $kuesionerId,
-                    'kategori'      => 'klinik',
-                    'nakes_id'      => null,
-                    'pertanyaan_id' => $p->id,
-                    'nilai'         => $nilai,
-                    'created_at'    => $now,
-                    'updated_at'    => $now,
-                ];
-                $klinikInsert["q{$urutanQ}"] = $nilai;
-                $urutanQ++;
+                $klinikJawaban[$p->id] = (int) ($klinikData["q{$p->id}"] ?? 0);
             }
+            $klinikRata = count($klinikJawaban) > 0
+                ? round(array_sum($klinikJawaban) / count($klinikJawaban), 2) : 0;
+
+            \DB::table('kuesioner_kliniks')->insert([
+                'kuesioner_id' => $kuesionerId,
+                'jawaban'      => json_encode($klinikJawaban),
+                'rata_rata'    => $klinikRata,
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ]);
 
             // Dokter
-            $dokterInsert = [
-                'kuesioner_id' => $kuesionerId, 'dokter_id' => $dokterId,
-                'kritik_saran' => $dokterData['kritik_saran'] ?? null,
-                'created_at' => $now, 'updated_at' => $now,
-            ];
-            $urutanQ = 1;
+            $dokterJawaban = [];
             foreach ($dokterPertanyaan as $p) {
-                $nilai = (int) ($dokterData["q{$p->id}"] ?? 0);
-                $jawabanBulk[] = [
-                    'kuesioner_id'  => $kuesionerId,
-                    'kategori'      => 'dokter',
-                    'nakes_id'      => $dokterId,
-                    'pertanyaan_id' => $p->id,
-                    'nilai'         => $nilai,
-                    'created_at'    => $now,
-                    'updated_at'    => $now,
-                ];
-                $dokterInsert["q{$urutanQ}"] = $nilai;
-                $urutanQ++;
+                $dokterJawaban[$p->id] = (int) ($dokterData["q{$p->id}"] ?? 0);
             }
+            $dokterRata = count($dokterJawaban) > 0
+                ? round(array_sum($dokterJawaban) / count($dokterJawaban), 2) : 0;
+
+            \DB::table('kuesioner_dokters')->insert([
+                'kuesioner_id' => $kuesionerId,
+                'dokter_id'    => $dokterId,
+                'jawaban'      => json_encode($dokterJawaban),
+                'rata_rata'    => $dokterRata,
+                'kritik_saran' => $dokterData['kritik_saran'] ?? null,
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ]);
 
             // Perawat
-            $perawatInsert = [
-                'kuesioner_id' => $kuesionerId, 'perawat_id' => $perawatId,
-                'kritik_saran' => $perawatData['kritik_saran'] ?? null,
-                'created_at' => $now, 'updated_at' => $now,
-            ];
-            $urutanQ = 1;
+            $perawatJawaban = [];
             foreach ($perawatPertanyaan as $p) {
-                $nilai = (int) ($perawatData["q{$p->id}"] ?? 0);
-                $jawabanBulk[] = [
-                    'kuesioner_id'  => $kuesionerId,
-                    'kategori'      => 'perawat',
-                    'nakes_id'      => $perawatId,
-                    'pertanyaan_id' => $p->id,
-                    'nilai'         => $nilai,
-                    'created_at'    => $now,
-                    'updated_at'    => $now,
-                ];
-                $perawatInsert["q{$urutanQ}"] = $nilai;
-                $urutanQ++;
+                $perawatJawaban[$p->id] = (int) ($perawatData["q{$p->id}"] ?? 0);
             }
+            $perawatRata = count($perawatJawaban) > 0
+                ? round(array_sum($perawatJawaban) / count($perawatJawaban), 2) : 0;
 
-            // ── Execute bulk inserts (4 queries total, bukan 48) ─────
-            JawabanKuesioner::insert($jawabanBulk);
-            \DB::table('kuesioner_kliniks')->insert($klinikInsert);
-            \DB::table('kuesioner_dokters')->insert($dokterInsert);
-            \DB::table('kuesioner_perawats')->insert($perawatInsert);
+            \DB::table('kuesioner_perawats')->insert([
+                'kuesioner_id' => $kuesionerId,
+                'perawat_id'   => $perawatId,
+                'jawaban'      => json_encode($perawatJawaban),
+                'rata_rata'    => $perawatRata,
+                'kritik_saran' => $perawatData['kritik_saran'] ?? null,
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ]);
 
             // ── Notifikasi jika ada komplain ─────────────────────────
             if ($hasComplain && $komplainTeks) {

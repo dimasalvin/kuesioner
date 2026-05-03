@@ -7,14 +7,16 @@ class KuesionerPerawat extends Model
 {
     protected $table = 'kuesioner_perawats';
     protected $guarded = [];
+    protected $casts = [
+        'jawaban'   => 'array',
+        'rata_rata' => 'float',
+    ];
 
     public function kuesioner() { return $this->belongsTo(Kuesioner::class); }
     public function perawat()   { return $this->belongsTo(Perawat::class); }
 
-    public function rataRata(): float
+    public function getRataRataAttribute($value): float
     {
-        $total = 0;
-        for ($i = 1; $i <= 15; $i++) $total += $this->{"q{$i}"};
-        return round($total / 15, 2);
+        return round((float) $value, 2);
     }
 }

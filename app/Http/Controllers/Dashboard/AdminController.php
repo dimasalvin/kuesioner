@@ -2,7 +2,8 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\{User, Dokter, Perawat, Kuesioner, JawabanKuesioner};
+use App\Models\{User, Dokter, Perawat, Kuesioner};
+use App\Services\KuesionerStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Cache, Hash, DB};
 use Illuminate\Validation\Rule;
@@ -13,7 +14,7 @@ class AdminController extends Controller
     {
         // Cache distribusi 60 detik — query aggregation berat, tidak perlu realtime
         $distribusi = Cache::remember('dashboard:distribusi', 60, function () {
-            return JawabanKuesioner::distribusiMulti(['klinik', 'dokter', 'perawat']);
+            return KuesionerStatsService::distribusiMulti(['klinik', 'dokter', 'perawat']);
         });
 
         $stats = Cache::remember('dashboard:stats', 60, function () {
@@ -150,7 +151,7 @@ class AdminController extends Controller
 
     public function chartApi(string $type)
     {
-        return response()->json(JawabanKuesioner::distribusi($type));
+        return response()->json(KuesionerStatsService::distribusi($type));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
@@ -192,6 +193,6 @@ class AdminController extends Controller
     // ── Static: dipakai ManagementController ─────────────────────────
     public static function chartData(string $type): array
     {
-        return JawabanKuesioner::distribusi($type);
+        return KuesionerStatsService::distribusi($type);
     }
 }

@@ -2,7 +2,8 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Dokter, Perawat, Kuesioner, JawabanKuesioner, PertanyaanKuesioner};
+use App\Models\{Dokter, Perawat, Kuesioner, PertanyaanKuesioner};
+use App\Services\KuesionerStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -24,26 +25,22 @@ class DetailPenilaianController extends Controller
 
         if (!in_array($tipe, ['dokter','perawat'])) $tipe = 'dokter';
 
-        // Grid card per nakes
+        // Grid card per nakes — query langsung dari tabel kuesioner_*
         if ($tipe === 'dokter') {
             $list = DB::table('dokters as d')
-                ->leftJoin('jawaban_kuesioner as j', function($join) {
-                    $join->on('d.id','=','j.nakes_id')->where('j.kategori','=','dokter');
-                })
+                ->leftJoin('kuesioner_dokters as kd', 'd.id', '=', 'kd.dokter_id')
                 ->selectRaw('d.id, d.nama,
-                    COUNT(DISTINCT j.kuesioner_id) as total,
-                    ROUND(AVG(j.nilai),2) as rata_rata')
-                ->groupBy('d.id','d.nama')
+                    COUNT(kd.id) as total,
+                    ROUND(AVG(kd.rata_rata), 2) as rata_rata')
+                ->groupBy('d.id', 'd.nama')
                 ->orderBy('d.nama')->get();
         } else {
             $list = DB::table('perawats as p')
-                ->leftJoin('jawaban_kuesioner as j', function($join) {
-                    $join->on('p.id','=','j.nakes_id')->where('j.kategori','=','perawat');
-                })
+                ->leftJoin('kuesioner_perawats as kp', 'p.id', '=', 'kp.perawat_id')
                 ->selectRaw('p.id, p.nama,
-                    COUNT(DISTINCT j.kuesioner_id) as total,
-                    ROUND(AVG(j.nilai),2) as rata_rata')
-                ->groupBy('p.id','p.nama')
+                    COUNT(kp.id) as total,
+                    ROUND(AVG(kp.rata_rata), 2) as rata_rata')
+                ->groupBy('p.id', 'p.nama')
                 ->orderBy('p.nama')->get();
         }
 
@@ -53,14 +50,9 @@ class DetailPenilaianController extends Controller
     // ── Klinik: list semua kuesioner ─────────────────────────────────
     private function klinikList(bool $userMode = false)
     {
-        // Ambil kuesioner yang punya jawaban klinik, hitung rata-rata dari jawaban_kuesioner
         $rows = DB::table('kuesioners as k')
-            ->join('jawaban_kuesioner as j', function($join) {
-                $join->on('k.id','=','j.kuesioner_id')->where('j.kategori','=','klinik');
-            })
-            ->selectRaw('k.id, k.nama as pasien_nama, k.no_telp, k.created_at,
-                ROUND(AVG(j.nilai),2) as rata_rata')
-            ->groupBy('k.id','k.nama','k.no_telp','k.created_at')
+            ->join('kuesioner_kliniks as kk', 'k.id', '=', 'kk.kuesioner_id')
+            ->select('k.id', 'k.nama as pasien_nama', 'k.no_telp', 'k.created_at', 'kk.rata_rata')
             ->orderByDesc('k.id')
             ->paginate(20);
 
@@ -71,16 +63,13 @@ class DetailPenilaianController extends Controller
     // ── Klinik: detail satu kuesioner ────────────────────────────────
     public function showKlinik(int $id)
     {
-        // $id = kuesioner_id (bukan kuesioner_kliniks.id lagi)
         $kuesioner = Kuesioner::findOrFail($id);
 
         $pertanyaan = PertanyaanKuesioner::where('kategori','klinik')
             ->orderBy('urutan')->get();
 
-        // Ambil jawaban untuk kuesioner ini, key by pertanyaan_id
-        $jawaban = JawabanKuesioner::where('kuesioner_id', $id)
-            ->where('kategori','klinik')
-            ->get()->keyBy('pertanyaan_id');
+        // Ambil jawaban dari JSON column
+        $jawaban = KuesionerStatsService::jawabanDetail($id, 'klinik');
 
         return view('dashboard.shared.detail-penilaian-klinik-show', compact('kuesioner','pertanyaan','jawaban'));
     }
@@ -88,18 +77,13 @@ class DetailPenilaianController extends Controller
     // ── Klinik chart: untuk halaman Penilaian Klinik nakes ───────────
     public function klinik()
     {
-        $chart      = JawabanKuesioner::distribusi('klinik');
+        $chart      = KuesionerStatsService::distribusi('klinik');
         $pertanyaan = PertanyaanKuesioner::aktif()->kategori('klinik')->get();
-        $perQ       = JawabanKuesioner::rataPerPertanyaan('klinik');
+        $perQ       = KuesionerStatsService::rataPerPertanyaan('klinik');
 
-        // 1 query menggantikan 2 query terpisah (COUNT DISTINCT + AVG)
-        $summary = DB::table('jawaban_kuesioner')
-            ->where('kategori', 'klinik')
-            ->selectRaw('COUNT(DISTINCT kuesioner_id) as total, ROUND(AVG(nilai), 2) as avg_total')
-            ->first();
-
-        $total    = (int) $summary->total;
-        $avgTotal = round((float) ($summary->avg_total ?? 0), 2);
+        $summary  = KuesionerStatsService::summary('klinik');
+        $total    = (int) ($summary->total ?? 0);
+        $avgTotal = round((float) ($summary->rata_rata ?? 0), 2);
 
         return view('dashboard.shared.detail-penilaian-klinik-nakes', compact('chart','pertanyaan','perQ','total','avgTotal'));
     }
@@ -109,16 +93,15 @@ class DetailPenilaianController extends Controller
     {
         $nakes    = $user->isDokter() ? $user->dokter : $user->perawat;
         $kategori = $user->isDokter() ? 'dokter' : 'perawat';
+        $table    = $kategori === 'dokter' ? 'kuesioner_dokters' : 'kuesioner_perawats';
+        $nakesCol = $kategori === 'dokter' ? 'dokter_id' : 'perawat_id';
 
         $rows = DB::table('kuesioners as k')
-            ->join('jawaban_kuesioner as j', function($join) use($kategori, $nakes) {
-                $join->on('k.id','=','j.kuesioner_id')
-                     ->where('j.kategori','=',$kategori)
-                     ->where('j.nakes_id','=',$nakes->id);
+            ->join("{$table} as kt", function($join) use($nakesCol, $nakes) {
+                $join->on('k.id', '=', 'kt.kuesioner_id')
+                     ->where("kt.{$nakesCol}", '=', $nakes->id);
             })
-            ->selectRaw('k.id, k.nama as pasien_nama, k.no_telp, k.created_at,
-                ROUND(AVG(j.nilai),2) as rata_rata')
-            ->groupBy('k.id','k.nama','k.no_telp','k.created_at')
+            ->select('k.id', 'k.nama as pasien_nama', 'k.no_telp', 'k.created_at', 'kt.rata_rata')
             ->orderByDesc('k.id')
             ->paginate(15);
 
@@ -137,17 +120,16 @@ class DetailPenilaianController extends Controller
             if ($myId != $id) abort(403);
         }
 
-        $nakes = $tipe === 'dokter' ? Dokter::findOrFail($id) : Perawat::findOrFail($id);
+        $nakes    = $tipe === 'dokter' ? Dokter::findOrFail($id) : Perawat::findOrFail($id);
+        $table    = $tipe === 'dokter' ? 'kuesioner_dokters' : 'kuesioner_perawats';
+        $nakesCol = $tipe === 'dokter' ? 'dokter_id' : 'perawat_id';
 
         $rows = DB::table('kuesioners as k')
-            ->join('jawaban_kuesioner as j', function($join) use($tipe, $id) {
-                $join->on('k.id','=','j.kuesioner_id')
-                     ->where('j.kategori','=',$tipe)
-                     ->where('j.nakes_id','=',$id);
+            ->join("{$table} as kt", function($join) use($nakesCol, $id) {
+                $join->on('k.id', '=', 'kt.kuesioner_id')
+                     ->where("kt.{$nakesCol}", '=', $id);
             })
-            ->selectRaw('k.id, k.nama as pasien_nama, k.no_telp, k.created_at,
-                ROUND(AVG(j.nilai),2) as rata_rata')
-            ->groupBy('k.id','k.nama','k.no_telp','k.created_at')
+            ->select('k.id', 'k.nama as pasien_nama', 'k.no_telp', 'k.created_at', 'kt.rata_rata')
             ->orderByDesc('k.id')
             ->paginate(15);
 
@@ -157,55 +139,41 @@ class DetailPenilaianController extends Controller
     // ── Detail satu kuesioner nakes ───────────────────────────────────
     public function show(Request $request, int $id)
     {
-        // $id = kuesioners.id
         $tipe = $request->get('tipe','dokter');
         $user = auth()->user();
 
         $kuesioner = Kuesioner::findOrFail($id);
 
-        // Validasi akses nakes
-        if ($user->isUser()) {
-            $myNakesId = $user->isDokter() ? $user->dokter?->id : $user->perawat?->id;
-            $check = JawabanKuesioner::where('kuesioner_id',$id)
-                ->where('kategori',$tipe)
-                ->where('nakes_id',$myNakesId)
-                ->exists();
-            if (!$check) abort(403);
-        }
-
-        // Info nakes + kritik saran dalam 1 query (bukan 2 terpisah)
+        // Ambil data nakes dari tabel kuesioner_dokters/perawats
         if ($tipe === 'dokter') {
-            $nakesRow = DB::table('jawaban_kuesioner as j')
-                ->join('dokters as d','d.id','=','j.nakes_id')
-                ->leftJoin('kuesioner_dokters as kd', function($join) use($id) {
-                    $join->on('kd.dokter_id','=','j.nakes_id')
-                         ->where('kd.kuesioner_id','=',$id);
-                })
-                ->where('j.kuesioner_id',$id)->where('j.kategori','dokter')
-                ->selectRaw('d.nama as nakes_nama, j.nakes_id, kd.kritik_saran')
+            $nakesRow = DB::table('kuesioner_dokters as kd')
+                ->join('dokters as d', 'd.id', '=', 'kd.dokter_id')
+                ->where('kd.kuesioner_id', $id)
+                ->select('d.nama as nakes_nama', 'kd.dokter_id as nakes_id', 'kd.kritik_saran')
                 ->first();
         } else {
-            $nakesRow = DB::table('jawaban_kuesioner as j')
-                ->join('perawats as p','p.id','=','j.nakes_id')
-                ->leftJoin('kuesioner_perawats as kp', function($join) use($id) {
-                    $join->on('kp.perawat_id','=','j.nakes_id')
-                         ->where('kp.kuesioner_id','=',$id);
-                })
-                ->where('j.kuesioner_id',$id)->where('j.kategori','perawat')
-                ->selectRaw('p.nama as nakes_nama, j.nakes_id, kp.kritik_saran')
+            $nakesRow = DB::table('kuesioner_perawats as kp')
+                ->join('perawats as p', 'p.id', '=', 'kp.perawat_id')
+                ->where('kp.kuesioner_id', $id)
+                ->select('p.nama as nakes_nama', 'kp.perawat_id as nakes_id', 'kp.kritik_saran')
                 ->first();
         }
 
         if (!$nakesRow) abort(404);
+
+        // Validasi akses nakes
+        if ($user->isUser()) {
+            $myNakesId = $user->isDokter() ? $user->dokter?->id : $user->perawat?->id;
+            if ($myNakesId != $nakesRow->nakes_id) abort(403);
+        }
+
         $kritikRow = $nakesRow->kritik_saran;
 
-        // Pertanyaan aktif + jawaban
-        $pertanyaan = PertanyaanKuesioner::where('kategori',$tipe)
-            ->where('aktif',true)->orderBy('urutan')->get();
+        // Pertanyaan aktif + jawaban dari JSON
+        $pertanyaan = PertanyaanKuesioner::where('kategori', $tipe)
+            ->where('aktif', true)->orderBy('urutan')->get();
 
-        $jawaban = JawabanKuesioner::where('kuesioner_id',$id)
-            ->where('kategori',$tipe)
-            ->get()->keyBy('pertanyaan_id');
+        $jawaban = KuesionerStatsService::jawabanDetail($id, $tipe);
 
         return view('dashboard.shared.detail-penilaian-show', compact(
             'kuesioner','tipe','pertanyaan','jawaban','nakesRow','kritikRow'

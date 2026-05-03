@@ -56,9 +56,10 @@ $stars    = round($rataRata);
         <div style="display:flex;flex-direction:column;gap:12px;">
             @foreach($pertanyaan as $p)
             @php
-                $val   = isset($jawaban[$p->id]) ? $jawaban[$p->id]->nilai : 0;
-                $pct   = ($val/5)*100;
-                $color = $val>=4?'var(--teal)':($val>=3?'var(--gold)':'var(--coral)');
+                $exists = isset($jawaban[$p->id]);
+                $val    = $exists ? $jawaban[$p->id]->nilai : 0;
+                $pct    = $exists ? ($val/5)*100 : 0;
+                $color  = $val>=4?'var(--teal)':($val>=3?'var(--gold)':'var(--coral)');
             @endphp
             <div style="display:flex;align-items:flex-start;gap:12px;">
                 <div style="font-size:11px;font-weight:800;color:var(--muted);min-width:22px;text-align:right;padding-top:2px;">
@@ -66,6 +67,9 @@ $stars    = round($rataRata);
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:13px;font-weight:600;margin-bottom:6px;line-height:1.4;">{{ $p->teks }}</div>
+                    @if(!$exists)
+                    <div style="font-size:12px;color:var(--muted);font-style:italic;">— Pertanyaan belum ada saat kuesioner diisi</div>
+                    @else
                     <div style="display:flex;align-items:center;gap:10px;">
                         <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;">
                             <div style="width:{{ $pct }}%;height:100%;background:{{ $color }};border-radius:4px;"></div>
@@ -77,6 +81,7 @@ $stars    = round($rataRata);
                         </div>
                         <span style="font-size:12px;font-weight:800;min-width:20px;color:{{ $color }};">{{ $val }}</span>
                     </div>
+                    @endif
                 </div>
             </div>
             @endforeach

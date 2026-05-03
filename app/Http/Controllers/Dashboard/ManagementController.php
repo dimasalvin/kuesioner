@@ -2,7 +2,8 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Kuesioner, Dokter, Perawat, JawabanKuesioner};
+use App\Models\{Kuesioner, Dokter, Perawat};
+use App\Services\KuesionerStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Cache, DB};
 
@@ -28,7 +29,7 @@ class ManagementController extends Controller
         });
 
         $distribusi = Cache::remember('dashboard:distribusi', 60, function () {
-            return JawabanKuesioner::distribusiMulti(['klinik', 'dokter', 'perawat']);
+            return KuesionerStatsService::distribusiMulti(['klinik', 'dokter', 'perawat']);
         });
 
         $ratingDokter = Cache::remember('dashboard:rating:dokter:5', 60, function () {
@@ -164,14 +165,14 @@ class ManagementController extends Controller
             return DB::table('kuesioner_dokters as kd')
                 ->join('dokters as d','d.id','=','kd.dokter_id')
                 ->selectRaw('d.id, d.nama, COUNT(kd.id) as total,
-                    ROUND(AVG((kd.q1+kd.q2+kd.q3+kd.q4+kd.q5+kd.q6+kd.q7+kd.q8+kd.q9+kd.q10+kd.q11+kd.q12+kd.q13+kd.q14+kd.q15)/15.0),2) as rata_rata')
+                    ROUND(AVG(kd.rata_rata), 2) as rata_rata')
                 ->groupBy('d.id','d.nama')
                 ->orderByDesc('rata_rata')->limit($limit)->get();
         }
         return DB::table('kuesioner_perawats as kp')
             ->join('perawats as p','p.id','=','kp.perawat_id')
             ->selectRaw('p.id, p.nama, COUNT(kp.id) as total,
-                ROUND(AVG((kp.q1+kp.q2+kp.q3+kp.q4+kp.q5+kp.q6+kp.q7+kp.q8+kp.q9+kp.q10+kp.q11+kp.q12+kp.q13+kp.q14+kp.q15)/15.0),2) as rata_rata')
+                ROUND(AVG(kp.rata_rata), 2) as rata_rata')
             ->groupBy('p.id','p.nama')
             ->orderByDesc('rata_rata')->limit($limit)->get();
     }
@@ -182,15 +183,13 @@ class ManagementController extends Controller
         if ($type === 'dokter') {
             $rows = DB::table('kuesioner_dokters as kd')
                 ->join('dokters as d','d.id','=','kd.dokter_id')
-                ->selectRaw('d.nama,
-                    ROUND(AVG((kd.q1+kd.q2+kd.q3+kd.q4+kd.q5+kd.q6+kd.q7+kd.q8+kd.q9+kd.q10+kd.q11+kd.q12+kd.q13+kd.q14+kd.q15)/15.0),2) as rata_rata')
+                ->selectRaw('d.nama, ROUND(AVG(kd.rata_rata), 2) as rata_rata')
                 ->groupBy('d.id','d.nama')
                 ->orderByDesc('rata_rata')->get();
         } else {
             $rows = DB::table('kuesioner_perawats as kp')
                 ->join('perawats as p','p.id','=','kp.perawat_id')
-                ->selectRaw('p.nama,
-                    ROUND(AVG((kp.q1+kp.q2+kp.q3+kp.q4+kp.q5+kp.q6+kp.q7+kp.q8+kp.q9+kp.q10+kp.q11+kp.q12+kp.q13+kp.q14+kp.q15)/15.0),2) as rata_rata')
+                ->selectRaw('p.nama, ROUND(AVG(kp.rata_rata), 2) as rata_rata')
                 ->groupBy('p.id','p.nama')
                 ->orderByDesc('rata_rata')->get();
         }
@@ -202,18 +201,17 @@ class ManagementController extends Controller
         ];
     }
 
-    // Chart distribusi Baik/Cukup/Kurang untuk 1 nakes (1 query aggregation, bukan fetch-all + loop PHP)
+    // Chart distribusi Baik/Cukup/Kurang untuk 1 nakes — pakai kolom rata_rata
     private function chartDistribusiNakes(string $tipe, int $id): array
     {
         $table = $tipe === 'dokter' ? 'kuesioner_dokters' : 'kuesioner_perawats';
         $col   = $tipe === 'dokter' ? 'dokter_id' : 'perawat_id';
-        $avg   = '(q1+q2+q3+q4+q5+q6+q7+q8+q9+q10+q11+q12+q13+q14+q15)/15.0';
 
         $result = DB::table($table)->where($col, $id)
             ->selectRaw("
-                SUM(CASE WHEN ($avg) >= 4 THEN 1 ELSE 0 END) as baik,
-                SUM(CASE WHEN ($avg) >= 3 AND ($avg) < 4 THEN 1 ELSE 0 END) as cukup,
-                SUM(CASE WHEN ($avg) < 3 THEN 1 ELSE 0 END) as kurang
+                SUM(CASE WHEN rata_rata >= 3.5 THEN 1 ELSE 0 END) as baik,
+                SUM(CASE WHEN rata_rata >= 2.5 AND rata_rata < 3.5 THEN 1 ELSE 0 END) as cukup,
+                SUM(CASE WHEN rata_rata < 2.5 THEN 1 ELSE 0 END) as kurang
             ")
             ->first();
 

@@ -2,7 +2,8 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\{JawabanKuesioner, PertanyaanKuesioner};
+use App\Models\PertanyaanKuesioner;
+use App\Services\KuesionerStatsService;
 use Illuminate\Support\Facades\{Auth, DB};
 
 class UserController extends Controller
@@ -42,18 +43,15 @@ class UserController extends Controller
             ]);
         }
 
-        $chart     = JawabanKuesioner::distribusi($kategori, $nakes->id);
+        $chart     = KuesionerStatsService::distribusi($kategori, $nakes->id);
 
-        // 1 query menggantikan 2 query terpisah (AVG + COUNT DISTINCT)
-        $summary   = DB::table('jawaban_kuesioner')
-                       ->where('kategori', $kategori)->where('nakes_id', $nakes->id)
-                       ->selectRaw('ROUND(AVG(nilai), 2) as rata_rata, COUNT(DISTINCT kuesioner_id) as total')
-                       ->first();
+        // Summary: rata-rata + total responden
+        $summary   = KuesionerStatsService::summary($kategori, $nakes->id);
         $rataRata  = round((float) ($summary->rata_rata ?? 0), 2);
-        $total     = (int) $summary->total;
+        $total     = (int) ($summary->total ?? 0);
 
         // Rata-rata per pertanyaan
-        $perQRaw   = JawabanKuesioner::rataPerPertanyaan($kategori, $nakes->id);
+        $perQRaw   = KuesionerStatsService::rataPerPertanyaan($kategori, $nakes->id);
         $pertanyaan = PertanyaanKuesioner::aktif()->kategori($kategori)->get();
 
         // Kritik saran terbaru
