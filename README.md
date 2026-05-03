@@ -111,12 +111,25 @@ Buka: http://localhost:8000
 | `dokters` | Data master dokter |
 | `perawats` | Data master perawat |
 | `kuesioners` | Data utama pasien + komplain |
-| `kuesioner_kliniks` | 15 penilaian fasilitas klinik (q1–q15) |
-| `kuesioner_dokters` | 15 penilaian dokter + kritik saran |
-| `kuesioner_perawats` | 15 penilaian perawat + kritik saran |
-| `jawaban_kuesioner` | Jawaban normalized (kategori, nakes_id, pertanyaan_id, nilai) |
+| `kuesioner_kliniks` | Jawaban klinik (JSON) + rata-rata |
+| `kuesioner_dokters` | Jawaban dokter (JSON) + rata-rata + kritik saran |
+| `kuesioner_perawats` | Jawaban perawat (JSON) + rata-rata + kritik saran |
 | `pertanyaan_kuesioner` | Master pertanyaan (kategori, teks, urutan, aktif) |
 | `notifications` | Notifikasi komplain untuk admin/management |
+
+### Format Jawaban (JSON)
+```json
+// kuesioner_kliniks.jawaban — key = pertanyaan_id, value = nilai (1-5)
+{"1": 5, "2": 4, "3": 5, "4": 3, "5": 5, ...}
+
+// kuesioner_kliniks.rata_rata — pre-calculated average
+4.53
+```
+
+Keuntungan format JSON:
+- **Pertanyaan dinamis** — bisa tambah/kurangi tanpa ubah schema
+- **Backward compatible** — kuesioner lama tetap valid meski pertanyaan berubah
+- **Hemat storage** — 4 rows per kuesioner (bukan 49)
 
 ---
 
@@ -137,9 +150,9 @@ app/
 ├── Models/
 │   ├── User.php, Dokter.php, Perawat.php
 │   ├── Kuesioner.php, KuesionerKlinik.php, KuesionerDokter.php, KuesionerPerawat.php
-│   ├── JawabanKuesioner.php, PertanyaanKuesioner.php
-│   └── Notification.php
+│   ├── PertanyaanKuesioner.php, Notification.php
 └── Services/
+    ├── KuesionerStatsService.php    # Statistik & aggregation
     └── NotificationService.php
 
 resources/views/
@@ -168,10 +181,12 @@ resources/views/
 ## ⚡ Optimasi Performa
 
 Project ini sudah dioptimasi untuk skala 100k+ data:
+- **JSON jawaban** — 4 rows per kuesioner (bukan 49), hemat 92% storage
+- **Pre-calculated `rata_rata`** — dashboard query instan tanpa AVG subquery
 - **Database indexes** pada semua kolom yang sering di-query (composite indexes)
 - **Query caching** (60–300 detik) untuk dashboard aggregation
-- **Bulk insert** saat submit kuesioner (1 query, bukan 45+)
-- **Distribusi multi-kategori** dalam 1 query (bukan 3 terpisah)
+- **Pertanyaan dinamis** — tambah/kurangi/reorder tanpa ubah schema
+- **Backward compatible** — kuesioner lama tetap valid meski pertanyaan berubah
 - **Notification caching** (unread count di-cache 15 detik)
 - **Cache invalidation** otomatis saat data baru masuk
 
