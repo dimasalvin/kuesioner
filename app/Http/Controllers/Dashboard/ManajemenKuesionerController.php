@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\PertanyaanKuesioner;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ManajemenKuesionerController extends Controller
 {
@@ -52,6 +53,8 @@ class ManajemenKuesionerController extends Controller
             'aktif'    => true,
         ]);
 
+        Cache::forget("pertanyaan:{$data['kategori']}");
+
         return redirect()
             ->route('dashboard.admin.manajemen-kuesioner', ['kategori' => $data['kategori']])
             ->with('success', 'Pertanyaan berhasil ditambahkan.');
@@ -70,6 +73,8 @@ class ManajemenKuesionerController extends Controller
             'aktif' => $request->boolean('aktif'),
         ]);
 
+        Cache::forget("pertanyaan:{$pertanyaan->kategori}");
+
         return redirect()
             ->route('dashboard.admin.manajemen-kuesioner', ['kategori' => $pertanyaan->kategori])
             ->with('success', 'Pertanyaan berhasil diperbarui.');
@@ -79,6 +84,7 @@ class ManajemenKuesionerController extends Controller
     public function toggleAktif(PertanyaanKuesioner $pertanyaan)
     {
         $pertanyaan->update(['aktif' => !$pertanyaan->aktif]);
+        Cache::forget("pertanyaan:{$pertanyaan->kategori}");
 
         return response()->json([
             'aktif'   => $pertanyaan->aktif,
@@ -91,6 +97,7 @@ class ManajemenKuesionerController extends Controller
     {
         $kategori = $pertanyaan->kategori;
         $pertanyaan->delete();
+        Cache::forget("pertanyaan:{$kategori}");
 
         // Reorder urutan setelah hapus
         $this->reorderAfterDelete($kategori);
@@ -108,9 +115,24 @@ class ManajemenKuesionerController extends Controller
             'ids.*' => 'integer|exists:pertanyaan_kuesioner,id',
         ]);
 
-        foreach ($data['ids'] as $urutan => $id) {
-            PertanyaanKuesioner::where('id', $id)->update(['urutan' => $urutan + 1]);
+        // 1 query CASE WHEN menggantikan N individual UPDATE
+        $ids   = $data['ids'];
+        $cases = [];
+        $binds = [];
+        foreach ($ids as $urutan => $id) {
+            $cases[] = "WHEN ? THEN ?";
+            $binds[] = $id;
+            $binds[] = $urutan + 1;
         }
+        $binds = array_merge($binds, $ids);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        \DB::update(
+            "UPDATE pertanyaan_kuesioner SET urutan = CASE id "
+            . implode(' ', $cases)
+            . " END WHERE id IN ($placeholders)",
+            $binds
+        );
 
         return response()->json(['message' => 'Urutan berhasil disimpan.']);
     }
@@ -118,12 +140,28 @@ class ManajemenKuesionerController extends Controller
     // ── Helper ────────────────────────────────────────────────────────
     private function reorderAfterDelete(string $kategori): void
     {
-        $items = PertanyaanKuesioner::where('kategori', $kategori)
+        // Ambil ID dalam urutan yang benar, lalu bulk update dengan CASE WHEN (1 query)
+        $ids = PertanyaanKuesioner::where('kategori', $kategori)
             ->orderBy('urutan')
-            ->get();
+            ->pluck('id');
 
-        foreach ($items as $i => $item) {
-            $item->update(['urutan' => $i + 1]);
+        if ($ids->isEmpty()) return;
+
+        $cases = [];
+        $binds = [];
+        foreach ($ids as $i => $id) {
+            $cases[] = "WHEN ? THEN ?";
+            $binds[] = $id;
+            $binds[] = $i + 1;
         }
+        $binds = array_merge($binds, $ids->toArray());
+        $placeholders = implode(',', array_fill(0, $ids->count(), '?'));
+
+        \DB::update(
+            "UPDATE pertanyaan_kuesioner SET urutan = CASE id "
+            . implode(' ', $cases)
+            . " END WHERE id IN ($placeholders)",
+            $binds
+        );
     }
 }

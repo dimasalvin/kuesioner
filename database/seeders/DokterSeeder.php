@@ -11,22 +11,21 @@ class DokterSeeder extends Seeder
     public function run(): void
     {
         $dokter = [
-            ['nama' => 'dr. Andi Susanto, Sp.PD',     'spesialisasi' => 'Penyakit Dalam'],
-            ['nama' => 'dr. Siti Rahayu, Sp.A',        'spesialisasi' => 'Anak'],
-            ['nama' => 'dr. Budi Santoso, Sp.OG',      'spesialisasi' => 'Obstetri & Ginekologi'],
-            ['nama' => 'dr. Rina Kartika, Sp.JP',      'spesialisasi' => 'Jantung & Pembuluh Darah'],
-            ['nama' => 'dr. Hendra Wijaya, Sp.B',      'spesialisasi' => 'Bedah Umum'],
-            ['nama' => 'dr. Maya Lestari, Sp.S',       'spesialisasi' => 'Saraf'],
-            ['nama' => 'dr. Fajar Nugroho, Sp.THT',    'spesialisasi' => 'THT'],
-            ['nama' => 'dr. Dewi Anggraini, Sp.KK',    'spesialisasi' => 'Kulit & Kelamin'],
-            ['nama' => 'dr. Rizky Pratama, Sp.M',      'spesialisasi' => 'Mata'],
-            ['nama' => 'dr. Ayu Permata, Sp.KJ',       'spesialisasi' => 'Kesehatan Jiwa'],
+            ['nama' => 'dr. Andi Susanto'],
+            ['nama' => 'dr. Siti Rahayu'],
+            ['nama' => 'dr. Budi Santoso'],
+            ['nama' => 'dr. Rina Kartika'],
+            ['nama' => 'dr. Hendra Wijaya'],
+            ['nama' => 'dr. Maya Lestari'],
+            ['nama' => 'dr. Fajar Nugroho'],
+            ['nama' => 'dr. Dewi Anggraini'],
+            ['nama' => 'dr. Rizky Pratama'],
+            ['nama' => 'dr. Ayu Permata'],
         ];
 
         foreach ($dokter as $d) {
             DB::table('dokters')->insert([
                 'nama'         => $d['nama'],
-                'spesialisasi' => $d['spesialisasi'],
                 'aktif'        => true,
                 'created_at'   => now(),
                 'updated_at'   => now(),

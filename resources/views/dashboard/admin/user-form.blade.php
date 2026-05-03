@@ -59,38 +59,12 @@
                 {{-- Nakes section: only visible for role=user --}}
                 <div id="nakesSection" style="display:none;">
                     <div style="padding:16px; background:var(--bg); border-radius:10px; margin-bottom:18px; border:1px solid var(--border);">
-                        <div class="form-group" style="margin-bottom:14px;">
+                        <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Tipe Nakes</label>
-                            <select name="tipe_nakes" class="form-control" id="tipeNakes" onchange="toggleNakesId()">
+                            <select name="tipe_nakes" class="form-control" id="tipeNakes">
                                 <option value="">Pilih tipe...</option>
                                 <option value="dokter"  {{ old('tipe_nakes',$user?->tipe_nakes)=='dokter'  ? 'selected':'' }}>Dokter</option>
                                 <option value="perawat" {{ old('tipe_nakes',$user?->tipe_nakes)=='perawat' ? 'selected':'' }}>Perawat</option>
-                            </select>
-                        </div>
-
-                        <div id="dokterSelect" style="display:none;">
-                            <label class="form-label">Pilih Dokter</label>
-                            <select name="nakes_id" class="form-control" id="dokterDropdown">
-                                <option value="">Pilih nama dokter...</option>
-                                @foreach($dokters as $d)
-                                    <option value="{{ $d->id }}"
-                                        {{ old('nakes_id',$user?->nakes_id)==$d->id && $user?->tipe_nakes=='dokter' ? 'selected':'' }}>
-                                        {{ $d->nama }} {{ $d->spesialisasi ? '('.$d->spesialisasi.')' : '' }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div id="perawatSelect" style="display:none;">
-                            <label class="form-label">Pilih Perawat</label>
-                            <select name="nakes_id" class="form-control" id="perawatDropdown">
-                                <option value="">Pilih nama perawat...</option>
-                                @foreach($perawats as $p)
-                                    <option value="{{ $p->id }}"
-                                        {{ old('nakes_id',$user?->nakes_id)==$p->id && $user?->tipe_nakes=='perawat' ? 'selected':'' }}>
-                                        {{ $p->nama }}
-                                    </option>
-                                @endforeach
                             </select>
                         </div>
                     </div>
@@ -126,24 +100,12 @@ function toggleNakes() {
     document.getElementById('nakesSection').style.display = role === 'user' ? 'block' : 'none';
     if (role !== 'user') {
         document.getElementById('tipeNakes').value = '';
-        document.getElementById('dokterSelect').style.display  = 'none';
-        document.getElementById('perawatSelect').style.display = 'none';
     }
-}
-
-function toggleNakesId() {
-    const tipe = document.getElementById('tipeNakes').value;
-    document.getElementById('dokterSelect').style.display  = tipe === 'dokter'  ? 'block' : 'none';
-    document.getElementById('perawatSelect').style.display = tipe === 'perawat' ? 'block' : 'none';
-    // clear the non-active one
-    if (tipe === 'dokter')  document.getElementById('perawatDropdown').value = '';
-    if (tipe === 'perawat') document.getElementById('dokterDropdown').value  = '';
 }
 
 // Run on page load (for edit mode)
 document.addEventListener('DOMContentLoaded', () => {
     toggleNakes();
-    toggleNakesId();
 });
 </script>
 @endpush

@@ -22,16 +22,35 @@ class UserController extends Controller
             return view('dashboard.user.no-nakes');
         }
 
-        if (!$nakes) return view('dashboard.user.no-nakes');
+        // Jika nakes_id belum terhubung, tampilkan dashboard kosong
+        if (!$nakes) {
+            $pertanyaan = PertanyaanKuesioner::aktif()->kategori($kategori)->get();
+            return view('dashboard.user.index', [
+                'nakes'      => null,
+                'chart'      => [
+                    'labels' => ['Baik (4–5 ⭐)', 'Cukup (3 ⭐)', 'Kurang (1–2 ⭐)'],
+                    'data'   => [0, 0, 0],
+                    'total'  => 0,
+                ],
+                'rataRata'   => 0,
+                'total'      => 0,
+                'pertanyaan' => $pertanyaan,
+                'perQRaw'    => collect(),
+                'kategori'   => $kategori,
+                'kritik'     => collect(),
+                'tipe'       => $kategori,
+            ]);
+        }
 
         $chart     = JawabanKuesioner::distribusi($kategori, $nakes->id);
-        $rataRata  = DB::table('jawaban_kuesioner')
-                       ->where('kategori',$kategori)->where('nakes_id',$nakes->id)
-                       ->avg('nilai') ?? 0;
-        $rataRata  = round((float)$rataRata, 2);
-        $total     = DB::table('jawaban_kuesioner')
-                       ->where('kategori',$kategori)->where('nakes_id',$nakes->id)
-                       ->distinct('kuesioner_id')->count('kuesioner_id');
+
+        // 1 query menggantikan 2 query terpisah (AVG + COUNT DISTINCT)
+        $summary   = DB::table('jawaban_kuesioner')
+                       ->where('kategori', $kategori)->where('nakes_id', $nakes->id)
+                       ->selectRaw('ROUND(AVG(nilai), 2) as rata_rata, COUNT(DISTINCT kuesioner_id) as total')
+                       ->first();
+        $rataRata  = round((float) ($summary->rata_rata ?? 0), 2);
+        $total     = (int) $summary->total;
 
         // Rata-rata per pertanyaan
         $perQRaw   = JawabanKuesioner::rataPerPertanyaan($kategori, $nakes->id);
@@ -54,6 +73,15 @@ class UserController extends Controller
     {
         $user  = Auth::user();
         $nakes = $user->isDokter() ? $user->dokter : $user->perawat;
+
+        // Jika nakes belum terhubung, tampilkan halaman kosong
+        if (!$nakes) {
+            return view('dashboard.user.kritik-saran', [
+                'nakes'  => null,
+                'kritik' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15),
+            ]);
+        }
+
         $tabel = $user->isDokter() ? 'kuesioner_dokters' : 'kuesioner_perawats';
         $kolom = $user->isDokter() ? 'dokter_id' : 'perawat_id';
 

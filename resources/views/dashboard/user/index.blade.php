@@ -12,10 +12,7 @@
         <div style="font-size:13px; opacity:.8; margin-bottom:4px; font-weight:600;">
             {{ $tipe === 'dokter' ? '👨‍⚕️ Dokter' : '👩‍⚕️ Perawat' }}
         </div>
-        <div style="font-family:'Caveat',cursive; font-size:28px; line-height:1.2;">{{ $nakes->nama }}</div>
-        @if(isset($nakes->spesialisasi) && $nakes->spesialisasi)
-            <div style="font-size:13px; opacity:.75; margin-top:4px;">{{ $nakes->spesialisasi }}</div>
-        @endif
+        <div style="font-family:'Caveat',cursive; font-size:28px; line-height:1.2;">{{ $nakes ? $nakes->nama : Auth::user()->name }}</div>
     </div>
     <div style="text-align:right;">
         <div style="font-size:40px; font-weight:800; line-height:1;">{{ number_format($rataRata, 2) }}</div>

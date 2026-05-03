@@ -30,17 +30,17 @@ class DetailPenilaianController extends Controller
                 ->leftJoin('jawaban_kuesioner as j', function($join) {
                     $join->on('d.id','=','j.nakes_id')->where('j.kategori','=','dokter');
                 })
-                ->selectRaw('d.id, d.nama, d.spesialisasi,
+                ->selectRaw('d.id, d.nama,
                     COUNT(DISTINCT j.kuesioner_id) as total,
                     ROUND(AVG(j.nilai),2) as rata_rata')
-                ->groupBy('d.id','d.nama','d.spesialisasi')
+                ->groupBy('d.id','d.nama')
                 ->orderBy('d.nama')->get();
         } else {
             $list = DB::table('perawats as p')
                 ->leftJoin('jawaban_kuesioner as j', function($join) {
                     $join->on('p.id','=','j.nakes_id')->where('j.kategori','=','perawat');
                 })
-                ->selectRaw('p.id, p.nama, NULL as spesialisasi,
+                ->selectRaw('p.id, p.nama,
                     COUNT(DISTINCT j.kuesioner_id) as total,
                     ROUND(AVG(j.nilai),2) as rata_rata')
                 ->groupBy('p.id','p.nama')
@@ -91,14 +91,15 @@ class DetailPenilaianController extends Controller
         $chart      = JawabanKuesioner::distribusi('klinik');
         $pertanyaan = PertanyaanKuesioner::aktif()->kategori('klinik')->get();
         $perQ       = JawabanKuesioner::rataPerPertanyaan('klinik');
-        $total      = DB::table('jawaban_kuesioner')
-                        ->where('kategori','klinik')
-                        ->distinct('kuesioner_id')->count('kuesioner_id');
-        $avgTotal = DB::table('jawaban_kuesioner')
-                        ->where('kategori','klinik')
-                        ->avg('nilai');
 
-                    $avgTotal = round((float)$avgTotal, 2);
+        // 1 query menggantikan 2 query terpisah (COUNT DISTINCT + AVG)
+        $summary = DB::table('jawaban_kuesioner')
+            ->where('kategori', 'klinik')
+            ->selectRaw('COUNT(DISTINCT kuesioner_id) as total, ROUND(AVG(nilai), 2) as avg_total')
+            ->first();
+
+        $total    = (int) $summary->total;
+        $avgTotal = round((float) ($summary->avg_total ?? 0), 2);
 
         return view('dashboard.shared.detail-penilaian-klinik-nakes', compact('chart','pertanyaan','perQ','total','avgTotal'));
     }
@@ -172,28 +173,31 @@ class DetailPenilaianController extends Controller
             if (!$check) abort(403);
         }
 
-        // Info nakes dari jawaban
+        // Info nakes + kritik saran dalam 1 query (bukan 2 terpisah)
         if ($tipe === 'dokter') {
             $nakesRow = DB::table('jawaban_kuesioner as j')
                 ->join('dokters as d','d.id','=','j.nakes_id')
+                ->leftJoin('kuesioner_dokters as kd', function($join) use($id) {
+                    $join->on('kd.dokter_id','=','j.nakes_id')
+                         ->where('kd.kuesioner_id','=',$id);
+                })
                 ->where('j.kuesioner_id',$id)->where('j.kategori','dokter')
-                ->selectRaw('d.nama as nakes_nama, d.spesialisasi, j.nakes_id')
+                ->selectRaw('d.nama as nakes_nama, j.nakes_id, kd.kritik_saran')
                 ->first();
-            $kritikRow = DB::table('kuesioner_dokters')
-                ->where('kuesioner_id',$id)->where('dokter_id',$nakesRow?->nakes_id ?? 0)
-                ->value('kritik_saran');
         } else {
             $nakesRow = DB::table('jawaban_kuesioner as j')
                 ->join('perawats as p','p.id','=','j.nakes_id')
+                ->leftJoin('kuesioner_perawats as kp', function($join) use($id) {
+                    $join->on('kp.perawat_id','=','j.nakes_id')
+                         ->where('kp.kuesioner_id','=',$id);
+                })
                 ->where('j.kuesioner_id',$id)->where('j.kategori','perawat')
-                ->selectRaw('p.nama as nakes_nama, NULL as spesialisasi, j.nakes_id')
+                ->selectRaw('p.nama as nakes_nama, j.nakes_id, kp.kritik_saran')
                 ->first();
-            $kritikRow = DB::table('kuesioner_perawats')
-                ->where('kuesioner_id',$id)->where('perawat_id',$nakesRow?->nakes_id ?? 0)
-                ->value('kritik_saran');
         }
 
         if (!$nakesRow) abort(404);
+        $kritikRow = $nakesRow->kritik_saran;
 
         // Pertanyaan aktif + jawaban
         $pertanyaan = PertanyaanKuesioner::where('kategori',$tipe)

@@ -69,7 +69,7 @@ $baseRoute = $isAdmin ? 'dashboard.admin.detail-penilaian' : 'dashboard.manageme
             </div>
             <div class="nakes-meta">
                 <div class="nama">{{ $n->nama }}</div>
-                <div class="spek">{{ $n->spesialisasi ?? ($tipe==='dokter' ? 'Dokter Umum' : 'Perawat') }}</div>
+                <div class="spek">{{ $tipe==='dokter' ? 'Dokter' : 'Perawat' }}</div>
             </div>
         </div>
 

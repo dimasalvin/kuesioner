@@ -4,18 +4,27 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\{User, Dokter, Perawat, Kuesioner, JawabanKuesioner};
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{Hash, DB};
+use Illuminate\Support\Facades\{Cache, Hash, DB};
 use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
 {
     public function index()
     {
+        // Cache distribusi 60 detik — query aggregation berat, tidak perlu realtime
+        $distribusi = Cache::remember('dashboard:distribusi', 60, function () {
+            return JawabanKuesioner::distribusiMulti(['klinik', 'dokter', 'perawat']);
+        });
+
+        $stats = Cache::remember('dashboard:stats', 60, function () {
+            return $this->getStats();
+        });
+
         return view('dashboard.admin.index', [
-            'stats'        => $this->getStats(),
-            'chartKlinik'  => JawabanKuesioner::distribusi('klinik'),
-            'chartDokter'  => JawabanKuesioner::distribusi('dokter'),
-            'chartPerawat' => JawabanKuesioner::distribusi('perawat'),
+            'stats'        => $stats,
+            'chartKlinik'  => $distribusi['klinik'],
+            'chartDokter'  => $distribusi['dokter'],
+            'chartPerawat' => $distribusi['perawat'],
             'komplain'     => Kuesioner::whereHasComplain()->latest()->take(5)->get(),
         ]);
     }
@@ -25,7 +34,9 @@ class AdminController extends Controller
     {
         $users = User::query()
             ->when($request->role, fn($q,$r) => $q->where('role',$r))
-            ->when($request->search, fn($q,$s) => $q->where('name','like',"%$s%")->orWhere('email','like',"%$s%"))
+            ->when($request->search, fn($q,$s) => $q->where(function($sub) use($s) {
+                $sub->where('name','like',"%$s%")->orWhere('email','like',"%$s%");
+            }))
             ->orderBy('role')->orderBy('name')
             ->paginate(15)->withQueryString();
         return view('dashboard.admin.users', compact('users'));
@@ -34,7 +45,7 @@ class AdminController extends Controller
     public function createUser()
     {
         return view('dashboard.admin.user-form', [
-            'user'=>null, 'dokters'=>Dokter::orderBy('nama')->get(), 'perawats'=>Perawat::orderBy('nama')->get(),
+            'user'=>null,
         ]);
     }
 
@@ -45,8 +56,8 @@ class AdminController extends Controller
             'password'=>'required|min:8|confirmed',
             'role'=>'required|in:administrator,management,user',
             'tipe_nakes'=>'required_if:role,user|nullable|in:dokter,perawat',
-            'nakes_id'=>'required_if:tipe_nakes,dokter,perawat|nullable|integer',
         ]);
+        $data['nakes_id'] = null;
         User::create([...$data, 'password'=>Hash::make($data['password']), 'aktif'=>$request->boolean('aktif',true)]);
         return redirect()->route('dashboard.admin.users')->with('success','User berhasil ditambahkan.');
     }
@@ -54,7 +65,7 @@ class AdminController extends Controller
     public function editUser(User $user)
     {
         return view('dashboard.admin.user-form', [
-            'user'=>$user, 'dokters'=>Dokter::orderBy('nama')->get(), 'perawats'=>Perawat::orderBy('nama')->get(),
+            'user'=>$user,
         ]);
     }
 
@@ -66,8 +77,8 @@ class AdminController extends Controller
             'password'=>'nullable|min:8|confirmed',
             'role'=>'required|in:administrator,management,user',
             'tipe_nakes'=>'required_if:role,user|nullable|in:dokter,perawat',
-            'nakes_id'=>'required_if:tipe_nakes,dokter,perawat|nullable|integer',
         ]);
+        $data['nakes_id'] = null;
         if (!empty($data['password'])) $data['password'] = Hash::make($data['password']);
         else unset($data['password']);
         $data['aktif'] = $request->boolean('aktif');
@@ -99,7 +110,9 @@ class AdminController extends Controller
     public function komplain(Request $request)
     {
         $komplain = Kuesioner::whereHasComplain()
-            ->when($request->search, fn($q,$s) => $q->where('nama','like',"%$s%")->orWhere('komplain','like',"%$s%"))
+            ->when($request->search, fn($q,$s) => $q->where(function($sub) use($s) {
+                $sub->where('nama','like',"%$s%")->orWhere('komplain','like',"%$s%");
+            }))
             ->latest()->paginate(20)->withQueryString();
         return view('dashboard.admin.komplain', compact('komplain'));
     }
@@ -116,7 +129,7 @@ class AdminController extends Controller
             $query = DB::table('kuesioner_dokters as kd')
                 ->join('dokters as d','d.id','=','kd.dokter_id')
                 ->join('kuesioners as k','k.id','=','kd.kuesioner_id')
-                ->select('kd.id','d.id as nakes_id','d.nama as nakes_nama','d.spesialisasi','kd.kritik_saran','k.nama as pasien_nama','k.created_at')
+                ->select('kd.id','d.id as nakes_id','d.nama as nakes_nama','kd.kritik_saran','k.nama as pasien_nama','k.created_at')
                 ->whereNotNull('kd.kritik_saran')->where('kd.kritik_saran','!=','');
         } else {
             $tipe = 'perawat';
@@ -124,7 +137,7 @@ class AdminController extends Controller
             $query = DB::table('kuesioner_perawats as kp')
                 ->join('perawats as p','p.id','=','kp.perawat_id')
                 ->join('kuesioners as k','k.id','=','kp.kuesioner_id')
-                ->select('kp.id','p.id as nakes_id','p.nama as nakes_nama',DB::raw('NULL as spesialisasi'),'kp.kritik_saran','k.nama as pasien_nama','k.created_at')
+                ->select('kp.id','p.id as nakes_id','p.nama as nakes_nama','kp.kritik_saran','k.nama as pasien_nama','k.created_at')
                 ->whereNotNull('kp.kritik_saran')->where('kp.kritik_saran','!=','');
         }
         if ($nakesId) $query->where($tipe==='dokter'?'kd.dokter_id':'kp.perawat_id', $nakesId);
@@ -143,12 +156,22 @@ class AdminController extends Controller
     // ── Helpers ───────────────────────────────────────────────────────
     private function getStats(): array
     {
+        // 1 query gabungan menggantikan 5 query terpisah
+        $row = DB::selectOne("
+            SELECT
+                (SELECT COUNT(*) FROM kuesioners) as total_kuesioner,
+                (SELECT COUNT(*) FROM kuesioners WHERE has_complain = 1 AND komplain IS NOT NULL) as total_komplain,
+                (SELECT COUNT(*) FROM dokters) as total_dokter,
+                (SELECT COUNT(*) FROM perawats) as total_perawat,
+                (SELECT COUNT(*) FROM users) as total_user
+        ");
+
         return [
-            'total_kuesioner' => Kuesioner::count(),
-            'total_komplain'  => Kuesioner::whereHasComplain()->count(),
-            'total_dokter'    => Dokter::count(),
-            'total_perawat'   => Perawat::count(),
-            'total_user'      => User::count(),
+            'total_kuesioner' => (int) $row->total_kuesioner,
+            'total_komplain'  => (int) $row->total_komplain,
+            'total_dokter'    => (int) $row->total_dokter,
+            'total_perawat'   => (int) $row->total_perawat,
+            'total_user'      => (int) $row->total_user,
         ];
     }
 
@@ -156,9 +179,9 @@ class AdminController extends Controller
     {
         if ($tipe === 'dokter') {
             return DB::table('kuesioner_dokters as kd')->join('dokters as d','d.id','=','kd.dokter_id')
-                ->selectRaw('d.id, d.nama, d.spesialisasi, COUNT(kd.kritik_saran) as total')
+                ->selectRaw('d.id, d.nama, COUNT(kd.kritik_saran) as total')
                 ->whereNotNull('kd.kritik_saran')->where('kd.kritik_saran','!=','')
-                ->groupBy('d.id','d.nama','d.spesialisasi')->orderByDesc('total')->get();
+                ->groupBy('d.id','d.nama')->orderByDesc('total')->get();
         }
         return DB::table('kuesioner_perawats as kp')->join('perawats as p','p.id','=','kp.perawat_id')
             ->selectRaw('p.id, p.nama, COUNT(kp.kritik_saran) as total')

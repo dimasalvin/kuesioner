@@ -38,7 +38,7 @@
             <tbody>
                 @forelse($komplain as $k)
                 <tr>
-                    <td style="color:var(--muted); font-size:12px;">{{ $k->id }}</td>
+                    <td style="color:var(--muted); font-size:12px;">{{ ($komplain->currentPage() - 1) * $komplain->perPage() + $loop->iteration }}</td>
                     <td><strong>{{ $k->nama }}</strong></td>
                     <td style="color:var(--muted); font-size:13px;">{{ $k->no_telp }}</td>
                     <td style="max-width:400px;">

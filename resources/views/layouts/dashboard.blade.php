@@ -263,7 +263,7 @@
 <!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-        <div class="title">🏥 Klinik</div>
+        <div class="title">🏥 Dental Lab+</div>
         <div class="sub">Dashboard Manajemen</div>
     </div>
     <div class="sidebar-user">

@@ -6,7 +6,7 @@
 <div class="card">
     <div class="card-header">
         <div>
-            <div class="card-title">💬 Kritik & Saran untuk {{ $nakes->nama }}</div>
+            <div class="card-title">💬 Kritik & Saran untuk {{ $nakes ? $nakes->nama : Auth::user()->name }}</div>
             <div class="card-subtitle">{{ $kritik->total() }} masukan dari pasien</div>
         </div>
     </div>

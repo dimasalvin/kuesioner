@@ -26,9 +26,6 @@ if ($isNakes) {
     <a href="{{ $backRoute }}" class="btn btn-ghost btn-sm">← Kembali</a>
     <div>
         <div style="font-size:16px;font-weight:800;">{{ $nakes->nama }}</div>
-        @if(isset($nakes->spesialisasi) && $nakes->spesialisasi)
-        <div style="font-size:12px;color:var(--muted);">{{ $nakes->spesialisasi }}</div>
-        @endif
     </div>
 </div>
 

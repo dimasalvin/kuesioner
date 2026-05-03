@@ -39,9 +39,6 @@ $stars    = round($rataRata);
             {{ $tipe==='dokter'?'👨‍⚕️ Dokter':'👩‍⚕️ Perawat' }}
         </div>
         <div style="font-family:'Caveat',cursive;font-size:24px;line-height:1.2;">{{ $nakesRow->nakes_nama }}</div>
-        @if(isset($nakesRow->spesialisasi) && $nakesRow->spesialisasi)
-            <div style="font-size:12px;opacity:.75;margin-top:2px;">{{ $nakesRow->spesialisasi }}</div>
-        @endif
         <div style="font-size:12px;opacity:.7;margin-top:8px;">
             Pasien: {{ $kuesioner->nama }} •
             {{ $kuesioner->created_at->indonesiaFormat() }}

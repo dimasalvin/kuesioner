@@ -2,43 +2,87 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Kuesioner, Dokter, Perawat};
+use App\Models\{Kuesioner, Dokter, Perawat, JawabanKuesioner};
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{Cache, DB};
 
 class ManagementController extends Controller
 {
     public function index()
     {
+        // Cache heavy aggregation queries — 60 detik
+        $stats = Cache::remember('dashboard:stats:mgmt', 60, function () {
+            $row = DB::selectOne("
+                SELECT
+                    (SELECT COUNT(*) FROM kuesioners) as total_kuesioner,
+                    (SELECT COUNT(*) FROM kuesioners WHERE has_complain = 1 AND komplain IS NOT NULL) as total_komplain,
+                    (SELECT COUNT(*) FROM dokters) as total_dokter,
+                    (SELECT COUNT(*) FROM perawats) as total_perawat
+            ");
+            return [
+                'total_kuesioner' => (int) $row->total_kuesioner,
+                'total_komplain'  => (int) $row->total_komplain,
+                'total_dokter'    => (int) $row->total_dokter,
+                'total_perawat'   => (int) $row->total_perawat,
+            ];
+        });
+
+        $distribusi = Cache::remember('dashboard:distribusi', 60, function () {
+            return JawabanKuesioner::distribusiMulti(['klinik', 'dokter', 'perawat']);
+        });
+
+        $ratingDokter = Cache::remember('dashboard:rating:dokter:5', 60, function () {
+            return $this->topRatings('dokter');
+        });
+
+        $ratingPerawat = Cache::remember('dashboard:rating:perawat:5', 60, function () {
+            return $this->topRatings('perawat');
+        });
+
         return view('dashboard.management.index', [
-            'stats'         => [
-                'total_kuesioner' => Kuesioner::count(),
-                'total_komplain'  => Kuesioner::whereHasComplain()->count(),
-                'total_dokter'    => Dokter::count(),
-                'total_perawat'   => Perawat::count(),
-            ],
-            'chartKlinik'   => AdminController::chartData('klinik'),
-            'chartDokter'   => AdminController::chartData('dokter'),
-            'chartPerawat'  => AdminController::chartData('perawat'),
-            'ratingDokter'  => $this->topRatings('dokter'),
-            'ratingPerawat' => $this->topRatings('perawat'),
+            'stats'         => $stats,
+            'chartKlinik'   => $distribusi['klinik'],
+            'chartDokter'   => $distribusi['dokter'],
+            'chartPerawat'  => $distribusi['perawat'],
+            'ratingDokter'  => $ratingDokter,
+            'ratingPerawat' => $ratingPerawat,
         ]);
     }
 
     // Penilaian Tenaga Kesehatan (chart + rating list)
     public function penilaianNakes(Request $request)
     {
-        $dokterList  = Dokter::orderBy('nama')->get();
-        $perawatList = Perawat::orderBy('nama')->get();
+        // Cache daftar nakes (jarang berubah)
+        $dokterList = Cache::remember('nakes:dokter:list', 300, function () {
+            return Dokter::orderBy('nama')->get(['id', 'nama']);
+        });
+        $perawatList = Cache::remember('nakes:perawat:list', 300, function () {
+            return Perawat::orderBy('nama')->get(['id', 'nama']);
+        });
+
+        // Cache rating (heavy AVG query)
+        $ratingDokter = Cache::remember('dashboard:rating:dokter:all', 120, function () {
+            return $this->topRatings('dokter', 999);
+        });
+        $ratingPerawat = Cache::remember('dashboard:rating:perawat:all', 120, function () {
+            return $this->topRatings('perawat', 999);
+        });
+
+        // Cache chart data
+        $chartSemuaDokter = Cache::remember('dashboard:chart:semua:dokter', 120, function () {
+            return $this->chartSemuaNakes('dokter');
+        });
+        $chartSemuaPerawat = Cache::remember('dashboard:chart:semua:perawat', 120, function () {
+            return $this->chartSemuaNakes('perawat');
+        });
 
         return view('dashboard.management.penilaian-nakes', [
-            'dokterList'    => $dokterList,
-            'perawatList'   => $perawatList,
-            'ratingDokter'  => $this->topRatings('dokter', 999),
-            'ratingPerawat' => $this->topRatings('perawat', 999),
-            // chart data semua (dipakai JS via chartApiNakes)
-            'chartSemuaDokter'  => $this->chartSemuaNakes('dokter'),
-            'chartSemuaPerawat' => $this->chartSemuaNakes('perawat'),
+            'dokterList'        => $dokterList,
+            'perawatList'       => $perawatList,
+            'ratingDokter'      => $ratingDokter,
+            'ratingPerawat'     => $ratingPerawat,
+            'chartSemuaDokter'  => $chartSemuaDokter,
+            'chartSemuaPerawat' => $chartSemuaPerawat,
         ]);
     }
 
@@ -60,8 +104,9 @@ class ManagementController extends Controller
     public function komplain(Request $request)
     {
         $komplain = Kuesioner::whereHasComplain()
-            ->when($request->search, fn($q,$s) =>
-                $q->where('nama','like',"%$s%")->orWhere('komplain','like',"%$s%"))
+            ->when($request->search, fn($q,$s) => $q->where(function($sub) use($s) {
+                $sub->where('nama','like',"%$s%")->orWhere('komplain','like',"%$s%");
+            }))
             ->latest()->paginate(20)->withQueryString();
         return view('dashboard.management.komplain', compact('komplain'));
     }
@@ -78,7 +123,7 @@ class ManagementController extends Controller
                 ->join('dokters as d','d.id','=','kd.dokter_id')
                 ->join('kuesioners as k','k.id','=','kd.kuesioner_id')
                 ->select('kd.id','d.id as nakes_id','d.nama as nakes_nama',
-                         'd.spesialisasi','kd.kritik_saran','k.nama as pasien_nama','k.created_at')
+                         'kd.kritik_saran','k.nama as pasien_nama','k.created_at')
                 ->whereNotNull('kd.kritik_saran')->where('kd.kritik_saran','!=','');
         } else {
             $tipe = 'perawat';
@@ -87,7 +132,7 @@ class ManagementController extends Controller
                 ->join('perawats as p','p.id','=','kp.perawat_id')
                 ->join('kuesioners as k','k.id','=','kp.kuesioner_id')
                 ->select('kp.id','p.id as nakes_id','p.nama as nakes_nama',
-                         DB::raw('NULL as spesialisasi'),'kp.kritik_saran','k.nama as pasien_nama','k.created_at')
+                         'kp.kritik_saran','k.nama as pasien_nama','k.created_at')
                 ->whereNotNull('kp.kritik_saran')->where('kp.kritik_saran','!=','');
         }
 
@@ -118,9 +163,9 @@ class ManagementController extends Controller
         if ($type === 'dokter') {
             return DB::table('kuesioner_dokters as kd')
                 ->join('dokters as d','d.id','=','kd.dokter_id')
-                ->selectRaw('d.id, d.nama, d.spesialisasi, COUNT(kd.id) as total,
+                ->selectRaw('d.id, d.nama, COUNT(kd.id) as total,
                     ROUND(AVG((kd.q1+kd.q2+kd.q3+kd.q4+kd.q5+kd.q6+kd.q7+kd.q8+kd.q9+kd.q10+kd.q11+kd.q12+kd.q13+kd.q14+kd.q15)/15.0),2) as rata_rata')
-                ->groupBy('d.id','d.nama','d.spesialisasi')
+                ->groupBy('d.id','d.nama')
                 ->orderByDesc('rata_rata')->limit($limit)->get();
         }
         return DB::table('kuesioner_perawats as kp')
@@ -157,25 +202,24 @@ class ManagementController extends Controller
         ];
     }
 
-    // Chart distribusi Baik/Cukup/Kurang untuk 1 nakes
+    // Chart distribusi Baik/Cukup/Kurang untuk 1 nakes (1 query aggregation, bukan fetch-all + loop PHP)
     private function chartDistribusiNakes(string $tipe, int $id): array
     {
-        $avg = 'ROUND((q1+q2+q3+q4+q5+q6+q7+q8+q9+q10+q11+q12+q13+q14+q15)/15.0,2)';
-        if ($tipe === 'dokter') {
-            $rows = DB::table('kuesioner_dokters')->where('dokter_id',$id)
-                ->selectRaw("$avg as avg_val")->get();
-        } else {
-            $rows = DB::table('kuesioner_perawats')->where('perawat_id',$id)
-                ->selectRaw("$avg as avg_val")->get();
-        }
+        $table = $tipe === 'dokter' ? 'kuesioner_dokters' : 'kuesioner_perawats';
+        $col   = $tipe === 'dokter' ? 'dokter_id' : 'perawat_id';
+        $avg   = '(q1+q2+q3+q4+q5+q6+q7+q8+q9+q10+q11+q12+q13+q14+q15)/15.0';
 
-        $baik = $cukup = $kurang = 0;
-        foreach ($rows as $r) {
-            $v = (float)$r->avg_val;
-            if ($v >= 4)      $baik++;
-            elseif ($v >= 3)  $cukup++;
-            else               $kurang++;
-        }
+        $result = DB::table($table)->where($col, $id)
+            ->selectRaw("
+                SUM(CASE WHEN ($avg) >= 4 THEN 1 ELSE 0 END) as baik,
+                SUM(CASE WHEN ($avg) >= 3 AND ($avg) < 4 THEN 1 ELSE 0 END) as cukup,
+                SUM(CASE WHEN ($avg) < 3 THEN 1 ELSE 0 END) as kurang
+            ")
+            ->first();
+
+        $baik   = (int) ($result->baik ?? 0);
+        $cukup  = (int) ($result->cukup ?? 0);
+        $kurang = (int) ($result->kurang ?? 0);
 
         return [
             'type'   => 'individu',
@@ -190,9 +234,9 @@ class ManagementController extends Controller
         if ($tipe === 'dokter') {
             return DB::table('kuesioner_dokters as kd')
                 ->join('dokters as d','d.id','=','kd.dokter_id')
-                ->selectRaw('d.id, d.nama, d.spesialisasi, COUNT(kd.kritik_saran) as total')
+                ->selectRaw('d.id, d.nama, COUNT(kd.kritik_saran) as total')
                 ->whereNotNull('kd.kritik_saran')->where('kd.kritik_saran','!=','')
-                ->groupBy('d.id','d.nama','d.spesialisasi')->orderByDesc('total')->get();
+                ->groupBy('d.id','d.nama')->orderByDesc('total')->get();
         }
         return DB::table('kuesioner_perawats as kp')
             ->join('perawats as p','p.id','=','kp.perawat_id')

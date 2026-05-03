@@ -68,13 +68,12 @@
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Nama Dokter</th><th>Spesialisasi</th><th>Penilai</th><th>Rata-rata</th></tr>
+                    <tr><th>Nama Dokter</th><th>Penilai</th><th>Rata-rata</th></tr>
                 </thead>
                 <tbody>
                     @forelse($ratingDokter as $d)
                     <tr>
                         <td><strong style="font-size:13px;">{{ $d->nama }}</strong></td>
-                        <td style="font-size:12px; color:var(--muted);">{{ $d->spesialisasi ?? '—' }}</td>
                         <td style="font-size:13px;">{{ $d->total }}</td>
                         <td>
                             @php $pct = ($d->rata_rata / 5) * 100; @endphp

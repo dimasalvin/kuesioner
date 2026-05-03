@@ -1,66 +1,73 @@
-# Kuesioner Kepuasan Pasien Klinik
-> Aplikasi kuesioner berbasis Laravel 10+ untuk mengukur kepuasan pasien terhadap fasilitas klinik, dokter, dan perawat.
+# 🏥 Kuesioner Kepuasan Pasien — Klinik Gigi
+
+Aplikasi kuesioner berbasis **Laravel 12 + Blade + MySQL** untuk mengukur kepuasan pasien terhadap fasilitas klinik, dokter, dan perawat.
 
 ---
 
-## ✨ Fitur
-- **6-step multi-page form** dengan progress indicator
-- **Star rating interaktif** (hover & tap) untuk mobile
-- **Conditional complaint field** — muncul hanya jika pilih "Ya"
-- **Session-based state** — data aman saat navigasi
-- **Validasi client & server side** lengkap
-- **Mobile-first design** — dioptimalkan untuk layar HP
-- **Database relasional** — 6 tabel dengan foreign key
+## ✨ Fitur Utama
+
+### 📋 Kuesioner Publik (6 Step)
+- Form multi-step dengan progress indicator
+- Star rating interaktif (1–5 bintang)
+- Penilaian: Klinik → Dokter → Perawat → Komplain
+- Kritik & saran opsional per nakes
+- Session-based state management
+
+### 📊 Dashboard Admin
+- Statistik keseluruhan (total kuesioner, komplain, nakes, user)
+- Chart distribusi penilaian (Baik/Cukup/Kurang)
+- Kelola User (CRUD + role management)
+- Kelola Pertanyaan Kuesioner (drag-drop reorder, toggle aktif)
+- Detail Penilaian per kuesioner
+- Daftar Komplain + Kritik & Saran
+
+### 📈 Dashboard Management
+- Chart distribusi + ranking nakes
+- Penilaian per individu nakes (chart interaktif)
+- Data kuesioner (read-only)
+- Komplain + Kritik & Saran
+
+### ⭐ Dashboard User (Nakes)
+- Penilaian pribadi (rata-rata, chart, per pertanyaan)
+- Kritik & saran yang ditujukan ke diri sendiri
+- Penilaian klinik (overview)
+- Detail penilaian per kuesioner
+
+### 🔔 Notifikasi
+- Real-time notification untuk admin & management saat ada komplain baru
+- Mark as read (individual & bulk)
 
 ---
 
-## 🔧 Requirements
-- PHP >= 8.1
-- Laravel >= 10.x
-- MySQL / MariaDB / SQLite
-- Composer
+## 🔧 Tech Stack
+
+| Layer | Teknologi |
+|-------|-----------|
+| Backend | Laravel 12, PHP 8.2+ |
+| Frontend | Blade, Vanilla JS, CSS Custom |
+| Database | MySQL 8.0+ |
+| Auth | Laravel built-in (session) |
+| Cache | File/Redis (configurable) |
 
 ---
 
 ## 🚀 Instalasi
 
-### 1. Buat Project Laravel Baru
+### 1. Clone & Install Dependencies
 ```bash
-composer create-project laravel/laravel kuesioner-klinik
+git clone <repo-url> kuesioner-klinik
 cd kuesioner-klinik
+composer install
 ```
 
-### 2. Copy File Project
-Salin semua file dari folder ini ke dalam project Laravel:
-```
-app/Http/Controllers/KuesionerController.php
-app/Models/Kuesioner.php
-app/Models/Dokter.php
-app/Models/Perawat.php
-app/Models/KuesionerKlinik.php
-app/Models/KuesionerDokter.php
-app/Models/KuesionerPerawat.php
-database/migrations/2024_01_01_000001_create_kuesioner_tables.php
-database/seeders/DatabaseSeeder.php
-database/seeders/DokterSeeder.php
-database/seeders/PerawatSeeder.php
-resources/views/layouts/app.blade.php
-resources/views/kuesioner/step1-identitas.blade.php
-resources/views/kuesioner/step2-klinik.blade.php
-resources/views/kuesioner/step3-dokter.blade.php
-resources/views/kuesioner/step4-perawat.blade.php
-resources/views/kuesioner/step5-komplain.blade.php
-resources/views/kuesioner/step6-thankyou.blade.php
-routes/web.php
-public/css/app.css
-public/js/app.js
+### 2. Konfigurasi Environment
+```bash
+cp .env.example .env
+php artisan key:generate
 ```
 
-### 3. Konfigurasi .env
+Edit `.env`:
 ```env
-APP_NAME="Kuesioner Klinik"
-APP_URL=http://localhost:8000
-
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
@@ -69,40 +76,30 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-### 4. Buat Database
+### 3. Buat Database & Jalankan Migration
 ```bash
-# MySQL
 mysql -u root -p -e "CREATE DATABASE kuesioner_klinik;"
-
-# Atau gunakan SQLite (lebih mudah untuk development)
-# Ubah DB_CONNECTION=sqlite di .env
-# touch database/database.sqlite
-```
-
-### 5. Jalankan Migration & Seeder
-```bash
 php artisan migrate
 php artisan db:seed
 ```
 
-### 6. Jalankan Server
+### 4. Jalankan Server
 ```bash
 php artisan serve
-# Buka: http://localhost:8000
 ```
+
+Buka: http://localhost:8000
 
 ---
 
-## 📱 Testing di HP
-```bash
-# Jalankan di IP lokal agar bisa diakses HP di jaringan yang sama
-php artisan serve --host=0.0.0.0 --port=8000
+## 👤 Akun Demo
 
-# Cari IP komputer kamu:
-# Windows: ipconfig
-# Mac/Linux: ifconfig
-# Buka di HP: http://192.168.x.x:8000
-```
+| Role | Email | Password |
+|------|-------|----------|
+| Administrator | admin@klinik.com | admin123 |
+| Management | management@klinik.com | mgmt123 |
+| Dokter | andi.susanto@klinik.com | dokter123 |
+| Perawat | ani.wulandari@klinik.com | perawat123 |
 
 ---
 
@@ -110,63 +107,84 @@ php artisan serve --host=0.0.0.0 --port=8000
 
 | Tabel | Keterangan |
 |-------|------------|
+| `users` | Akun login (admin, management, nakes) |
 | `dokters` | Data master dokter |
 | `perawats` | Data master perawat |
 | `kuesioners` | Data utama pasien + komplain |
-| `kuesioner_kliniks` | 15 penilaian fasilitas klinik |
-| `kuesioner_dokters` | 15 penilaian dokter + kritik |
-| `kuesioner_perawats` | 15 penilaian perawat + kritik |
+| `kuesioner_kliniks` | 15 penilaian fasilitas klinik (q1–q15) |
+| `kuesioner_dokters` | 15 penilaian dokter + kritik saran |
+| `kuesioner_perawats` | 15 penilaian perawat + kritik saran |
+| `jawaban_kuesioner` | Jawaban normalized (kategori, nakes_id, pertanyaan_id, nilai) |
+| `pertanyaan_kuesioner` | Master pertanyaan (kategori, teks, urutan, aktif) |
+| `notifications` | Notifikasi komplain untuk admin/management |
 
 ---
 
-## 📊 Contoh Query Laporan
+## 📁 Struktur Project
 
-```sql
--- Rata-rata penilaian klinik
-SELECT ROUND(AVG((q1+q2+q3+q4+q5+q6+q7+q8+q9+q10+q11+q12+q13+q14+q15)/15.0), 2)
-AS rata_rata_klinik FROM kuesioner_kliniks;
+```
+app/
+├── Http/Controllers/
+│   ├── AuthController.php
+│   ├── KuesionerController.php          # Public kuesioner flow
+│   └── Dashboard/
+│       ├── AdminController.php          # Admin dashboard + user CRUD
+│       ├── ManagementController.php     # Management dashboard
+│       ├── UserController.php           # Nakes dashboard
+│       ├── DetailPenilaianController.php
+│       ├── ManajemenKuesionerController.php
+│       └── NotificationController.php
+├── Models/
+│   ├── User.php, Dokter.php, Perawat.php
+│   ├── Kuesioner.php, KuesionerKlinik.php, KuesionerDokter.php, KuesionerPerawat.php
+│   ├── JawabanKuesioner.php, PertanyaanKuesioner.php
+│   └── Notification.php
+└── Services/
+    └── NotificationService.php
 
--- Rata-rata per dokter
-SELECT d.nama, ROUND(AVG((kd.q1+kd.q2+kd.q3+kd.q4+kd.q5+kd.q6+kd.q7+kd.q8+kd.q9+kd.q10+kd.q11+kd.q12+kd.q13+kd.q14+kd.q15)/15.0), 2) AS rata_rata
-FROM kuesioner_dokters kd
-JOIN dokters d ON d.id = kd.dokter_id
-GROUP BY d.id, d.nama
-ORDER BY rata_rata DESC;
-
--- Total kuesioner per hari
-SELECT DATE(created_at) as tanggal, COUNT(*) as total
-FROM kuesioners
-GROUP BY DATE(created_at)
-ORDER BY tanggal DESC;
+resources/views/
+├── kuesioner/          # 6 step form publik
+├── auth/               # Login
+├── layouts/            # Dashboard layout
+└── dashboard/
+    ├── admin/          # Admin pages
+    ├── management/     # Management pages
+    ├── user/           # Nakes pages
+    └── shared/         # Shared components (detail penilaian)
 ```
 
 ---
 
-## 🛠️ Kustomisasi
+## 🔐 Role & Akses
 
-### Menambah/mengubah pertanyaan
-Edit array `$pertanyaan` di masing-masing view blade:
-- `step2-klinik.blade.php` — pertanyaan klinik
-- `step3-dokter.blade.php` — pertanyaan dokter
-- `step4-perawat.blade.php` — pertanyaan perawat
+| Role | Akses |
+|------|-------|
+| **Administrator** | Semua fitur + kelola user + kelola pertanyaan + hapus data |
+| **Management** | Dashboard + penilaian nakes + data kuesioner + komplain (read-only) |
+| **User (Nakes)** | Penilaian pribadi + kritik saran + penilaian klinik |
 
-### Menambah dokter/perawat
+---
+
+## ⚡ Optimasi Performa
+
+Project ini sudah dioptimasi untuk skala 100k+ data:
+- **Database indexes** pada semua kolom yang sering di-query (composite indexes)
+- **Query caching** (60–300 detik) untuk dashboard aggregation
+- **Bulk insert** saat submit kuesioner (1 query, bukan 45+)
+- **Distribusi multi-kategori** dalam 1 query (bukan 3 terpisah)
+- **Notification caching** (unread count di-cache 15 detik)
+- **Cache invalidation** otomatis saat data baru masuk
+
+---
+
+## 📱 Testing di HP
 ```bash
-# Via seeder
-php artisan db:seed --class=DokterSeeder
-
-# Atau via Tinker
-php artisan tinker
-App\Models\Dokter::create(['nama' => 'dr. Baru', 'spesialisasi' => 'Umum']);
+php artisan serve --host=0.0.0.0 --port=8000
+# Buka di HP: http://<IP-komputer>:8000
 ```
 
-### Mengubah warna tema
-Edit CSS variables di `public/css/app.css`:
-```css
-:root {
-    --teal:  #2BBFA4;  /* warna utama */
-    --coral: #FF6B6B;  /* warna aksen merah */
-    --sky:   #5BA4E5;  /* warna biru */
-    --gold:  #F4C842;  /* warna bintang */
-}
-```
+---
+
+## 📄 License
+
+MIT

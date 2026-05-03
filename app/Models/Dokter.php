@@ -5,7 +5,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Dokter extends Model
 {
-    protected $fillable = ['nama', 'spesialisasi', 'aktif'];
+    protected $fillable = ['nama', 'aktif'];
     protected $table = 'dokters';
 
     public function kuesionerDokter() { return $this->hasMany(KuesionerDokter::class); }

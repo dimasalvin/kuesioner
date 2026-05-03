@@ -44,29 +44,73 @@ class JawabanKuesioner extends Model
 
     // ── Helper: distribusi baik/cukup/kurang ─────────────────────────────────
     public static function distribusi(string $kategori, ?int $nakesId = null): array
-{
-    $sub = self::where('kategori', $kategori)
-        ->when($nakesId, fn($q) => $q->where('nakes_id', $nakesId))
-        ->selectRaw('kuesioner_id, AVG(nilai) as avg_nilai')
-        ->groupBy('kuesioner_id');
+    {
+        $sub = self::where('kategori', $kategori)
+            ->when($nakesId, fn($q) => $q->where('nakes_id', $nakesId))
+            ->selectRaw('kuesioner_id, AVG(nilai) as avg_nilai')
+            ->groupBy('kuesioner_id');
 
-    $result = \DB::query()
-        ->fromSub($sub, 't')
-        ->selectRaw("
-            SUM(CASE WHEN avg_nilai >= 3.5 THEN 1 ELSE 0 END) as baik,
-            SUM(CASE WHEN avg_nilai >= 2.5 AND avg_nilai < 3.5 THEN 1 ELSE 0 END) as cukup,
-            SUM(CASE WHEN avg_nilai < 2.5 THEN 1 ELSE 0 END) as kurang
-        ")
-        ->first();
+        $result = \DB::query()
+            ->fromSub($sub, 't')
+            ->selectRaw("
+                COALESCE(SUM(CASE WHEN avg_nilai >= 3.5 THEN 1 ELSE 0 END), 0) as baik,
+                COALESCE(SUM(CASE WHEN avg_nilai >= 2.5 AND avg_nilai < 3.5 THEN 1 ELSE 0 END), 0) as cukup,
+                COALESCE(SUM(CASE WHEN avg_nilai < 2.5 THEN 1 ELSE 0 END), 0) as kurang
+            ")
+            ->first();
 
-    return [
-        'labels' => ['Baik (4–5 ⭐)', 'Cukup (3 ⭐)', 'Kurang (1–2 ⭐)'],
-        'data'   => [
-            (int) $result->baik,
-            (int) $result->cukup,
-            (int) $result->kurang
-        ],
-        'total'  => (int) $result->baik + (int) $result->cukup + (int) $result->kurang,
-    ];
-}
+        return [
+            'labels' => ['Baik (4–5 ⭐)', 'Cukup (3 ⭐)', 'Kurang (1–2 ⭐)'],
+            'data'   => [
+                (int) $result->baik,
+                (int) $result->cukup,
+                (int) $result->kurang
+            ],
+            'total'  => (int) $result->baik + (int) $result->cukup + (int) $result->kurang,
+        ];
+    }
+
+    /**
+     * Distribusi baik/cukup/kurang untuk beberapa kategori sekaligus (1 query).
+     * Menggantikan N kali panggil distribusi() terpisah.
+     *
+     * @param  array  $kategoriList  ['klinik', 'dokter', 'perawat']
+     * @return array  keyed by kategori
+     */
+    public static function distribusiMulti(array $kategoriList): array
+    {
+        $sub = self::whereIn('kategori', $kategoriList)
+            ->selectRaw('kategori, kuesioner_id, AVG(nilai) as avg_nilai')
+            ->groupBy('kategori', 'kuesioner_id');
+
+        $rows = \DB::query()
+            ->fromSub($sub, 't')
+            ->selectRaw("
+                kategori,
+                COALESCE(SUM(CASE WHEN avg_nilai >= 3.5 THEN 1 ELSE 0 END), 0) as baik,
+                COALESCE(SUM(CASE WHEN avg_nilai >= 2.5 AND avg_nilai < 3.5 THEN 1 ELSE 0 END), 0) as cukup,
+                COALESCE(SUM(CASE WHEN avg_nilai < 2.5 THEN 1 ELSE 0 END), 0) as kurang
+            ")
+            ->groupBy('kategori')
+            ->get()
+            ->keyBy('kategori');
+
+        $labels = ['Baik (4–5 ⭐)', 'Cukup (3 ⭐)', 'Kurang (1–2 ⭐)'];
+        $result = [];
+
+        foreach ($kategoriList as $kat) {
+            $r = $rows->get($kat);
+            $baik   = (int) ($r->baik ?? 0);
+            $cukup  = (int) ($r->cukup ?? 0);
+            $kurang = (int) ($r->kurang ?? 0);
+
+            $result[$kat] = [
+                'labels' => $labels,
+                'data'   => [$baik, $cukup, $kurang],
+                'total'  => $baik + $cukup + $kurang,
+            ];
+        }
+
+        return $result;
+    }
 }

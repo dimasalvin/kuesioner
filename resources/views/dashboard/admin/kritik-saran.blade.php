@@ -94,11 +94,7 @@ $baseRoute = auth()->user()->isAdmin()
     <a href="{{ route($baseRoute, ['tipe' => $tipe, 'nakes_id' => $s->id]) }}"
        class="summary-card {{ $nakesId == $s->id ? 'selected' : '' }}">
         <div class="s-nama" title="{{ $s->nama }}">{{ $s->nama }}</div>
-        @if(isset($s->spesialisasi) && $s->spesialisasi)
-            <div class="s-spek">{{ $s->spesialisasi }}</div>
-        @else
-            <div class="s-spek">&nbsp;</div>
-        @endif
+        <div class="s-spek">&nbsp;</div>
         <div class="s-total">{{ $s->total }}</div>
         <div class="s-label">masukan</div>
     </a>
@@ -144,9 +140,6 @@ $baseRoute = auth()->user()->isAdmin()
                     </div>
                     <div class="nakes-info">
                         <div class="nama">{{ $k->nakes_nama }}</div>
-                        @if($k->spesialisasi)
-                            <div class="spek">{{ $k->spesialisasi }}</div>
-                        @endif
                     </div>
                 </div>
                 <div class="kritik-right">

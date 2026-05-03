@@ -13,31 +13,40 @@ class NotificationService
      */
     public static function createKomplainNotif(Kuesioner $kuesioner): void
     {
-        // Ambil semua user dengan role administrator atau management
-        $targets = User::whereIn('role', ['administrator', 'management'])
+        // Ambil hanya ID user target (lebih ringan dari get() full model)
+        $targetIds = User::whereIn('role', ['administrator', 'management'])
             ->where('aktif', true)
-            ->get();
+            ->pluck('id');
 
-        foreach ($targets as $user) {
-            Notification::create([
-                'user_id'      => $user->id,
-                'kuesioner_id' => $kuesioner->id,
-                'judul'        => 'Komplain Baru Masuk',
-                'pesan'        => 'Pasien atas nama ' . $kuesioner->nama
-                                  . ' menyampaikan komplain: '
-                                  . \Str::limit($kuesioner->komplain, 100),
-                'read_at'      => null,
-            ]);
-        }
+        if ($targetIds->isEmpty()) return;
+
+        $now   = now();
+        $pesan = 'Pasien atas nama ' . $kuesioner->nama
+                 . ' menyampaikan komplain: '
+                 . \Str::limit($kuesioner->komplain, 100);
+
+        // 1 bulk insert menggantikan N individual INSERT
+        $rows = $targetIds->map(fn($userId) => [
+            'user_id'      => $userId,
+            'kuesioner_id' => $kuesioner->id,
+            'judul'        => 'Komplain Baru Masuk',
+            'pesan'        => $pesan,
+            'read_at'      => null,
+            'created_at'   => $now,
+            'updated_at'   => $now,
+        ])->toArray();
+
+        Notification::insert($rows);
     }
 
     /**
      * Ambil notifikasi untuk user tertentu (untuk ditampilkan di topbar).
+     * Optimasi: tanpa eager load kuesioner (tidak dipakai di dropdown).
      */
     public static function getForUser(int $userId, int $limit = 10): \Illuminate\Support\Collection
     {
         return Notification::forUser($userId)
-            ->with('kuesioner')
+            ->select(['id', 'user_id', 'kuesioner_id', 'judul', 'pesan', 'read_at', 'created_at'])
             ->latest()
             ->limit($limit)
             ->get();
@@ -45,10 +54,23 @@ class NotificationService
 
     /**
      * Hitung notifikasi belum dibaca untuk user.
+     * Di-cache 15 detik agar tidak query setiap page load.
      */
     public static function unreadCount(int $userId): int
     {
-        return Notification::forUser($userId)->unread()->count();
+        return \Illuminate\Support\Facades\Cache::remember(
+            "notif:unread:{$userId}",
+            15,
+            fn() => Notification::forUser($userId)->unread()->count()
+        );
+    }
+
+    /**
+     * Invalidate unread count cache untuk user.
+     */
+    public static function clearUnreadCache(int $userId): void
+    {
+        \Illuminate\Support\Facades\Cache::forget("notif:unread:{$userId}");
     }
 
     /**
@@ -59,6 +81,7 @@ class NotificationService
         Notification::forUser($userId)
             ->unread()
             ->update(['read_at' => now()]);
+        self::clearUnreadCache($userId);
     }
 
     /**
@@ -70,5 +93,6 @@ class NotificationService
             ->where('user_id', $userId)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+        self::clearUnreadCache($userId);
     }
 }

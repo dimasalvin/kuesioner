@@ -49,20 +49,29 @@
             <tbody>
                 @forelse($users as $u)
                 <tr>
-                    <td style="color:var(--muted); font-size:12px;">{{ $u->id }}</td>
+                    <td style="color:var(--muted); font-size:12px;">{{ ($users->currentPage() - 1) * $users->perPage() + $loop->iteration }}</td>
                     <td>
                         <div style="display:flex; align-items:center; gap:10px;">
+                            @php
+                                $avatarBg = match(true) {
+                                    $u->role === 'administrator' => 'linear-gradient(135deg,#9ca3af,#6b7280)',
+                                    $u->role === 'management'    => 'linear-gradient(135deg,var(--gold),#d4a832)',
+                                    $u->tipe_nakes === 'dokter'  => 'linear-gradient(135deg,var(--teal),var(--teal-dark))',
+                                    $u->tipe_nakes === 'perawat' => 'linear-gradient(135deg,var(--sky),#3d8ad6)',
+                                    default                      => 'linear-gradient(135deg,#9ca3af,#6b7280)',
+                                };
+                            @endphp
                             <div style="width:32px; height:32px; border-radius:50%;
-                                        background:linear-gradient(135deg,var(--teal),var(--teal-dark));
+                                        background:{{ $avatarBg }};
                                         display:flex; align-items:center; justify-content:center;
                                         font-weight:800; font-size:12px; color:white; flex-shrink:0;">
                                 {{ strtoupper(substr($u->name, 0, 1)) }}
                             </div>
                             <div>
                                 <div style="font-weight:700; font-size:14px;">{{ $u->name }}</div>
-                                @if($u->nakes_id)
+                                @if($u->tipe_nakes)
                                     <div style="font-size:11px; color:var(--muted);">
-                                        {{ $u->isDokter() ? $u->dokter?->spesialisasi : 'Perawat' }}
+                                        {{ $u->isDokter() ? 'Dokter' : 'Perawat' }}
                                     </div>
                                 @endif
                             </div>
@@ -71,11 +80,11 @@
                     <td style="color:var(--muted); font-size:13px;">{{ $u->email }}</td>
                     <td>
                         @if($u->role === 'administrator')
-                            <span class="badge badge-purple">Administrator</span>
+                            <span class="badge" style="background:#f3f4f6; color:#6b7280; border:1px solid #e5e7eb;">Administrator</span>
                         @elseif($u->role === 'management')
-                            <span class="badge badge-sky">Management</span>
+                            <span class="badge badge-gold">Management</span>
                         @else
-                            <span class="badge badge-teal">User</span>
+                            <span class="badge badge-purple">User</span>
                         @endif
                     </td>
                     <td>

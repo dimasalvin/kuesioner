@@ -74,7 +74,6 @@
         <div class="nakes-card" id="card-dokter-{{ $d->id }}"
              onclick="selectNakes('dokter', {{ $d->id }}, this)">
             <div class="nc-nama">{{ $d->nama }}</div>
-            <div class="nc-spek">{{ $d->spesialisasi ?? '—' }}</div>
             <div class="nc-total">{{ $d->total }}</div>
             <div class="nc-label">MASUKAN</div>
         </div>
@@ -124,13 +123,12 @@
         <div class="card-header"><div class="card-title">🏅 Ranking Dokter</div></div>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>#</th><th>Nama</th><th>Spesialisasi</th><th>Penilai</th><th>Rata-rata</th></tr></thead>
+                <thead><tr><th>#</th><th>Nama</th><th>Penilai</th><th>Rata-rata</th></tr></thead>
                 <tbody>
                     @forelse($ratingDokter as $i => $d)
                     <tr>
                         <td style="font-weight:800;color:var(--teal);font-size:13px;">{{ $i+1 }}</td>
                         <td><strong style="font-size:13px;">{{ $d->nama }}</strong></td>
-                        <td style="font-size:12px;color:var(--muted);">{{ $d->spesialisasi ?? '—' }}</td>
                         <td style="font-size:13px;">{{ $d->total }}</td>
                         <td>
                             @php $pct = ($d->rata_rata/5)*100; @endphp
